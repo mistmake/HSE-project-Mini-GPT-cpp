@@ -8,6 +8,7 @@
 - fomulate testing, metrics
 - Model main classes and structures on paper
 - Create and test git
+- Split responsibilities
 **Result:** README.md with all pipeline structures
 
 ## 2. Data & Bigram
@@ -15,6 +16,7 @@
 - Create tokenizer
 - Create bigram
 - Test bigram
+**Result:** working BiGram
 
 ## 3. MLP
 - Create layers
