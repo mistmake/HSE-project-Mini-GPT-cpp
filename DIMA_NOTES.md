@@ -1,4 +1,5 @@
-# Comments on [bigram and one-layer NN]([url](https://github.com/karpathy/nn-zero-to-hero/blob/master/lectures/makemore/makemore_part1_bigrams.ipynb))
+# Comments on bigram and one-layer NN
+[link]([url](https://github.com/karpathy/nn-zero-to-hero/blob/master/lectures/makemore/makemore_part1_bigrams.ipynb))
 - We need to pick light datatset with simple word or short sentences.
 - this part is quite easy to make and doesn't require any advanced structures, so we can create a class for BiGram and One-Layer_NN. 
 - Moreover, the results of these models are too bad for being shown as a project, so we must create more advanced models.
