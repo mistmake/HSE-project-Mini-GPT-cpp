@@ -35,3 +35,11 @@ generate random weights
 ### Sample from the model
 in while True repeat 1-3 from GD and pick with multinomial the next charachter
 
+# Commets on MLP
+Idea from: article "Neural Probabalistic language model"
+Main idea: present words/chars not as integers, but as "embeddings" in n-dimensional vector space of knowledge. 
+## Steps
+1. create a vocabulary and mappings string->int int->string
+2. build a dataset, with X, _which consist ~block_size~ chars. empty spaces are filled with starts or ends_, Y, which consists of the next character after corresponding element from X.
+3. Randomly generate len_vocabulary*n-dimensional of weights. each embedding can be accessed by C[X]
+4. 
