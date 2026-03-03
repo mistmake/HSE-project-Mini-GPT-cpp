@@ -31,3 +31,19 @@ public:
         }
         std::cout << "Model trained successfully on " << text.length() << " characters!\n";
     }
+    char predictNext(char current) const override { //функция, которая предугатывает некст букву
+        unsigned char curr = current;
+        int max_count = -1;
+        char best_next_char = ' ';
+        for (size_t i = 0; i < VOCAB_SIZE; ++i) { //просматривает все 256 возможных след. букв, чтобы найти кол-во комбинаций, кот. больше повторяются по сравнению с другими
+            if (counts[curr][i] > max_count) {
+                max_count = counts[curr][i];
+                best_next_char = static_cast<char>(i);
+            }
+        }
+        if (max_count == 0) { //если моделька никогда эту букву не видела, то она возвращает пробел
+            return ' ';
+        }
+        return best_next_char;
+    }
+};
