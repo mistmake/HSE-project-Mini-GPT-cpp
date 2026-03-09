@@ -5,28 +5,61 @@
 #include <set>
 #include <map>
 namespace F = torch::nn::functional;
+
 constexpr int
 batch_size = 4,
 block_size = 8,
 vocab_size = 65,
-learning_amount = 100000;
+learning_amount = 10000,
+embed_dim_num = 32,
+head_size = 16;
+
 std::string vocab = " !$&',-.3:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
 std::map<char, int> stoi;
+
+// class Head : torch::nn::Module {
+//
+// };
+//
 
 struct BigramImpl : torch::nn::Module {
     torch::nn::Embedding embedding_table = nullptr;
-    BigramImpl(int vocab_size) {
+    torch::nn::Linear head = nullptr;
+    torch::nn::Embedding position_embedding = nullptr;
+
+    /// @param vocab_size -
+    BigramImpl() {
         embedding_table = register_module(
             "embedding_table",
-            torch::nn::Embedding(vocab_size, vocab_size)
+            torch::nn::Embedding(vocab_size, embed_dim_num)
             );
+        head = register_module(
+            "head",
+            torch::nn::Linear(embed_dim_num, vocab_size)
+            );
+        position_embedding = register_module(
+            "position_embedding",
+            torch::nn::Embedding(block_size, embed_dim_num)
+            );
+
     }
     torch::Tensor forward(torch::Tensor& idx) {
-        auto logits = embedding_table(idx);
+        auto idxTime = idx.size(1);
+        auto tokens_embed = embedding_table(idx);
+        auto position_embed = position_embedding(torch::arange(idxTime));
+        auto X = tokens_embed + position_embed;
+        auto logits = head(X);
         return logits;
     }
-    std::pair<torch::Tensor, torch::Tensor> forward(torch::Tensor& idx, torch::Tensor& targets) {
-        auto logits = embedding_table(idx);
+
+    ///
+    std::pair<torch::Tensor, torch::Tensor> forward(const torch::Tensor& idx, torch::Tensor& targets) {
+        auto idxTime = idx.size(1);
+        auto tokens_embed = embedding_table(idx);
+        auto position_embed = position_embedding(torch::arange(idxTime));
+        auto X = tokens_embed + position_embed;
+        auto logits = head(X);
         auto B = logits.size(0);
         auto T = logits.size(1);
         auto C = logits.size(2);
@@ -88,6 +121,7 @@ int main() {
         }
         encoded.push_back(stoi[c]);
     }
+
     torch::Tensor fulldata = torch::tensor(encoded);
     auto train_data = fulldata.slice(0, 0, static_cast<int>(fulldata.numel() * 0.9));
     auto test_data = fulldata.slice(0, static_cast<int>(fulldata.numel() * 0.9));
@@ -97,11 +131,15 @@ int main() {
         {batch_size, block_size},
         torch::kInt64
         );
-    Bigram model(vocab_size);
-    generate_and_cout(model, 100);
+
+    Bigram model;
+    // for (int i = 0; i < 20; ++i) {
+    //     generate_and_cout(model, 7);
+    // }
+
     auto optim = torch::optim::AdamW(model->parameters(), torch::optim::AdamWOptions(1e-3));
     for (int i = 0; i < learning_amount; ++i) {
-        auto [xb, yb] = get_batch(train_data);
+        auto [xb, yb] = get_batch(fulldata);
         auto [logits, loss] = model->forward(xb, yb);
 
         optim.zero_grad();
@@ -111,5 +149,18 @@ int main() {
             std::cout << loss.item() << "\n";
         }
     }
-    generate_and_cout(model, 300);
+    // for (int i = 0; i < 20; ++i) {
+    //     generate_and_cout(model, 7);
+    // }
+    //
+    auto x = torch::randn({batch_size, block_size, vocab_size});
+    auto key = torch::nn::Linear(torch::nn::LinearOptions(vocab_size, head_size).bias(false));
+    auto query = torch::nn::Linear(torch::nn::LinearOptions(vocab_size, head_size).bias(false));
+    auto k = key(x);
+    auto q = query(x);
+    auto wei = q.matmul(k.transpose(-2, -1));
+    torch::Tensor tril = torch::tril(torch::ones({block_size, block_size}));
+     wei = torch::zeros({block_size, block_size}).masked_fill(tril == 0, float(-INFINITY));
+    wei = F::softmax(wei, -1);
+    std::cout << wei;
 }
