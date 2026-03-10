@@ -6,13 +6,17 @@
 #include <stdexcept>
 #include <fstream>
 #include <sstream>
+#include <random> //библиотека для случайных чисел
+#include <cmath>
 
 constexpr size_t VOCAB_SIZE = 256;
+
 class FileIOException : public std::runtime_error {
 public:
     explicit FileIOException(const std::string& path)
         : std::runtime_error("Cannot read file: " + path) {}
 };
+
 class DataLoader {
 public:
     std::optional<std::string> loadText(const std::string& filepath) {
@@ -32,6 +36,7 @@ public:
         return content; //ретернит строчку в "бокс"
     }
 };
+
 class LanguageModel {
 public:
     virtual ~LanguageModel() { //деструктор, чтобы дети правильно очищали свою память
@@ -39,6 +44,7 @@ public:
     }
     virtual void train(const std::string& text) = 0; //pure virtual functions
     virtual char predictNext(char current) const = 0;
+
     std::string generateSentence(char start_char, int length) const {
         std::string result = "";
         result += start_char; // Добавляем первую букву
@@ -46,25 +52,35 @@ public:
         char current = start_char;
         for (int i = 0; i < length - 1; ++i) {
             char next = predictNext(current); // Угадываем следующую
-            if (next == ' ') break; // Останавливаемся, если модель возвращает пробел (не знает что делать)
+
+            // УБРАЛИ строчку с break, чтобы модель генерировала длинный текст с пробелами!
+
             result += next; // Приклеиваем к результату
             current = next; // Новая буква становится текущей для следующего шага
         }
         return result;
     }
 };
+
 class BigramModel : public LanguageModel { //класс - наследник
 private:
     //сетка, в которой храню данные
-    std::vector<std::vector<int>> counts; //кол-во, которое даст нам понять, сколько у нас повторяется тех или иных пар (пример на "hello")
+    std::vector<std::vector<int>> counts;
+    //ДОБАВЛЕНО: Генератор случайных чисел
+    //mutable нужен, чтобы генератор мог менять свое внутреннее состояние внутри const-функции
+    mutable std::mt19937 gen;
 
 public:
     BigramModel() {
-        counts.resize(VOCAB_SIZE, std::vector<int>(VOCAB_SIZE, 0)); //конструктор, который делает сетку размером 256*256, зап     олненную 0
+        counts.resize(VOCAB_SIZE, std::vector<int>(VOCAB_SIZE, 0)); //конструктор
+        //настраиваем стартовое значение (seed) для генератора
+        std::random_device rd;
+        gen = std::mt19937(rd());
     }
+
     void train(const std::string& text) override { //составляю пары
-        if (text.length() < 2) return; //ставлю условие, что мне нужно мин две буквы для пары
-        for (size_t i = 0; i < text.length() - 1; ++i) { //считаю, сколько пар у меня во всем датасете
+        if (text.length() < 2) return;
+        for (size_t i = 0; i < text.length() - 1; ++i) {
             unsigned char current_char = text[i];
             unsigned char next_char = text[i + 1];
 
@@ -72,23 +88,35 @@ public:
         }
         std::cout << "Model trained successfully on " << text.length() << " characters!\n";
     }
+
     char predictNext(char current) const override { //функция, которая предугатывает некст букву
         unsigned char curr = current;
-        int max_count = -1;
-        char best_next_char = ' ';
-        for (size_t i = 0; i < VOCAB_SIZE; ++i) { //просматривает все 256 возможных след. букв, чтобы найти кол-во комбинаций, кот. больше повторяются по сравнению с другими
-            if (counts[curr][i] > max_count) {
-                max_count = counts[curr][i];
-                best_next_char = static_cast<char>(i);
+
+        // Берем строку с частотами для нашей буквы
+        const auto& row = counts[curr];
+
+        // Проверяем, есть ли вообще варианты продолжения (видели ли мы эту букву в тексте)
+        bool has_options = false;
+        for (int count : row) {
+            if (count > 0) {
+                has_options = true;
+                break;
             }
         }
-        if (max_count == 0) { //если моделька никогда эту букву не видела, то она возвращает пробел
-            return ' ';
+
+        if (!has_options) {
+            return ' '; //если моделька никогда эту букву не видела, то она возвращает пробел
         }
-        return best_next_char;
+        //создаем рулетку на основе частот (аналог torch.multinomial)
+        std::discrete_distribution<> dist(row.begin(), row.end());
+        //крутим рулетку и получаем индекс буквы
+        int next_char_index = dist(gen);
+
+        return static_cast<char>(next_char_index);
     }
 };
 
+#ifndef HIDE_MAIN
 int main() {
     DataLoader loader;
     std::string path = "bigram.txt";
@@ -102,8 +130,8 @@ int main() {
             my_model->train(dataset.value());
             std::vector<std::unique_ptr<LanguageModel>> pipeline;
             pipeline.push_back(std::move(my_model));
-            std::cout << "\nGenerating text starting with 't':\n";
-            std::string output = pipeline[0]->generateSentence('t', 20);
+            //200 символов для генерации слов
+            std::string output = pipeline[0]->generateSentence('t', 200);
             std::cout << output << "\n";
 
         } else {
@@ -111,8 +139,9 @@ int main() {
         }
     } catch (const FileIOException& error) {
         std::cerr << "CRITICAL ERROR: " << error.what() << "\n";
-        std::cerr << "Please make sure you created the 'bigrame.txt' file!\n";
+        std::cerr << "The 'bigrame.txt' file doesn't created!\n";
     }
 
     return 0;
 }
+#endif
