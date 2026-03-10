@@ -18,12 +18,31 @@ std::string vocab = " !$&',-.3:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstu
 
 std::map<char, int> stoi;
 
-// class Head : torch::nn::Module {
-//
-// };
-//
+struct Head : torch::nn::Module {
+    torch::nn::Linear query = nullptr;
+    torch::nn::Linear key = nullptr;
+    torch::nn::Linear value = nullptr;
+    torch::Tensor mask;
+    Head() {
+        torch::Tensor mask = register_buffer("mask", torch::tril(torch::ones({block_size, block_size})));
+        query = register_module(
+            "query",
+            torch::nn::Linear(torch::nn::LinearOptions(embed_dim_num, head_size).bias(false))
+            );
+        key = register_module(
+            "key",
+            torch::nn::Linear(torch::nn::LinearOptions(embed_dim_num, head_size).bias(false))
+            );
+        value = register_module(
+    "value",
+    torch::nn::Linear(torch::nn::LinearOptions(embed_dim_num, head_size).bias(false))
+    );
+    }
+};
+
 
 struct BigramImpl : torch::nn::Module {
+
     torch::nn::Embedding embedding_table = nullptr;
     torch::nn::Linear head = nullptr;
     torch::nn::Embedding position_embedding = nullptr;
