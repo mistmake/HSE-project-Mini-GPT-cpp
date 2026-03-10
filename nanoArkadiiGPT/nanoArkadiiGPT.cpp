@@ -4,6 +4,8 @@
 #include <string>
 #include <set>
 #include <map>
+#include <cmath>
+
 namespace F = torch::nn::functional;
 
 constexpr int
@@ -37,6 +39,25 @@ struct Head : torch::nn::Module {
     "value",
     torch::nn::Linear(torch::nn::LinearOptions(embed_dim_num, head_size).bias(false))
     );
+    }
+
+    torch::Tensor forward(torch::Tensor& x) {
+        auto B = x.size(0);
+        auto T = x.size(1);
+        auto C = x.size(2);
+        auto K = key(x);
+        auto Q = query(x);
+        auto V = value(x);
+        torch::Tensor w = Q.matmul(K.transpose(-2, -1));
+        w = w / sqrt(K.size(-1));
+        w = w.masked_fill(
+            mask.index({torch::indexing::Slice(0, T), torch::indexing::Slice(0, T)}) == 0,
+            float(-INFINITY)
+            );
+        w = F::softmax(w, F::SoftmaxFuncOptions(-1));
+        auto res = w.matmul(V);
+        return res;
+
     }
 };
 
