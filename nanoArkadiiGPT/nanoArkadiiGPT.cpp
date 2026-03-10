@@ -12,21 +12,22 @@ constexpr int
 batch_size = 4,
 block_size = 8,
 vocab_size = 65,
-learning_amount = 10000,
+learning_amount = 50000,
 embed_dim_num = 32,
-head_size = 16;
+head_size = 32;
+auto device = (torch::cuda::is_available()) ? "cuda" : "cpu";
 
 std::string vocab = " !$&',-.3:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 std::map<char, int> stoi;
 
-struct Head : torch::nn::Module {
+struct HeadImpl : torch::nn::Module {
     torch::nn::Linear query = nullptr;
     torch::nn::Linear key = nullptr;
     torch::nn::Linear value = nullptr;
     torch::Tensor mask;
-    Head() {
-        torch::Tensor mask = register_buffer("mask", torch::tril(torch::ones({block_size, block_size})));
+    HeadImpl() {
+        mask = register_buffer("mask", torch::tril(torch::ones({block_size, block_size})));
         query = register_module(
             "query",
             torch::nn::Linear(torch::nn::LinearOptions(embed_dim_num, head_size).bias(false))
@@ -60,13 +61,15 @@ struct Head : torch::nn::Module {
 
     }
 };
+TORCH_MODULE(Head);
 
 
 struct BigramImpl : torch::nn::Module {
 
     torch::nn::Embedding embedding_table = nullptr;
-    torch::nn::Linear head = nullptr;
+    torch::nn::Linear main_head = nullptr;
     torch::nn::Embedding position_embedding = nullptr;
+    Head attention_head;
 
     /// @param vocab_size -
     BigramImpl() {
@@ -74,13 +77,17 @@ struct BigramImpl : torch::nn::Module {
             "embedding_table",
             torch::nn::Embedding(vocab_size, embed_dim_num)
             );
-        head = register_module(
-            "head",
+        main_head = register_module(
+            "main_head",
             torch::nn::Linear(embed_dim_num, vocab_size)
             );
         position_embedding = register_module(
             "position_embedding",
             torch::nn::Embedding(block_size, embed_dim_num)
+            );
+        attention_head = register_module(
+            "attention_head",
+            Head()
             );
 
     }
@@ -89,7 +96,8 @@ struct BigramImpl : torch::nn::Module {
         auto tokens_embed = embedding_table(idx);
         auto position_embed = position_embedding(torch::arange(idxTime));
         auto X = tokens_embed + position_embed;
-        auto logits = head(X);
+        X = attention_head(X);
+        auto logits = main_head(X);
         return logits;
     }
 
@@ -99,7 +107,8 @@ struct BigramImpl : torch::nn::Module {
         auto tokens_embed = embedding_table(idx);
         auto position_embed = position_embedding(torch::arange(idxTime));
         auto X = tokens_embed + position_embed;
-        auto logits = head(X);
+        X = attention_head(X);
+        auto logits = main_head(X);
         auto B = logits.size(0);
         auto T = logits.size(1);
         auto C = logits.size(2);
@@ -111,7 +120,11 @@ struct BigramImpl : torch::nn::Module {
 
     torch::Tensor generate(torch::Tensor idx, int max_new_tokens) {
         for (int i = 0; i < max_new_tokens; ++i) {
-            auto logits = forward(idx);
+            auto idx_sliced = idx.index({
+                torch::indexing::Slice(),
+                torch::indexing::Slice(-block_size, torch::indexing::None)
+            });
+            auto logits = forward(idx_sliced);
             logits = logits.index({torch::indexing::Slice(), -1, torch::indexing::Slice()});
             auto probs = F::softmax(logits, F::SoftmaxFuncOptions(-1));
             auto pred = torch::multinomial(probs, 1);
@@ -173,10 +186,7 @@ int main() {
         );
 
     Bigram model;
-    // for (int i = 0; i < 20; ++i) {
-    //     generate_and_cout(model, 7);
-    // }
-
+    generate_and_cout(model, 100);
     auto optim = torch::optim::AdamW(model->parameters(), torch::optim::AdamWOptions(1e-3));
     for (int i = 0; i < learning_amount; ++i) {
         auto [xb, yb] = get_batch(fulldata);
@@ -189,18 +199,5 @@ int main() {
             std::cout << loss.item() << "\n";
         }
     }
-    // for (int i = 0; i < 20; ++i) {
-    //     generate_and_cout(model, 7);
-    // }
-    //
-    auto x = torch::randn({batch_size, block_size, vocab_size});
-    auto key = torch::nn::Linear(torch::nn::LinearOptions(vocab_size, head_size).bias(false));
-    auto query = torch::nn::Linear(torch::nn::LinearOptions(vocab_size, head_size).bias(false));
-    auto k = key(x);
-    auto q = query(x);
-    auto wei = q.matmul(k.transpose(-2, -1));
-    torch::Tensor tril = torch::tril(torch::ones({block_size, block_size}));
-     wei = torch::zeros({block_size, block_size}).masked_fill(tril == 0, float(-INFINITY));
-    wei = F::softmax(wei, -1);
-    std::cout << wei;
+    generate_and_cout(model, 100);
 }
