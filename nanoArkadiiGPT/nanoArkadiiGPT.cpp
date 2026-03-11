@@ -18,6 +18,8 @@ head_number = 6;
 constexpr float dropout = 0.2;
 torch::Device device(torch::cuda::is_available() ? torch::kCUDA : torch::kCPU);
 
+int version = 0;
+
 std::string vocab = " !$&',-.3:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 std::map<char, int> stoi;
@@ -313,8 +315,9 @@ int main() {
         optim.zero_grad();
         loss.backward();
         optim.step();
-        if (i % 10000 == 0) {
-            std::cout << loss.item() << "\n";
+        if (i % 1000 == 0) {
+            std::cout << loss.item() << ("  Model saved, number: " + std::to_string(version)) <<"\n";
+            torch::save(model, std::string("versions/version") + std::to_string(version++) + std::string(".pt"));
         }
     }
     generate_and_cout(model, 100);
