@@ -6,10 +6,8 @@
 #include <stdexcept>
 #include <fstream>
 #include <sstream>
-#include <random> //библиотека для случайных чисел
-#include <cmath>
-
-constexpr size_t VOCAB_SIZE = 256;
+#include <random>
+#include <unordered_map> // ДОБАВЛЕНО: для создания словарей (хэш-таблиц) слов
 
 class FileIOException : public std::runtime_error {
 public:
@@ -19,100 +17,102 @@ public:
 
 class DataLoader {
 public:
-    std::optional<std::string> loadText(const std::string& filepath) {
-        std::ifstream file(filepath); //автоматом закрывает файл
-
+    static std::optional<std::string> loadText(const std::string& filepath) {
+        std::ifstream file(filepath);
         if (!file.is_open()) {
-            throw FileIOException(filepath); //отбрасывает ошибку
+            throw FileIOException(filepath);
         }
         std::ostringstream buffer;
         buffer << file.rdbuf();
         std::string content = buffer.str();
-
         if (content.empty()) {
-            return std::nullopt; //файл открыт, но он пустой
+            return std::nullopt;
         }
-
-        return content; //ретернит строчку в "бокс"
+        return content;
     }
 };
 
 class LanguageModel {
 public:
-    virtual ~LanguageModel() { //деструктор, чтобы дети правильно очищали свою память
+    virtual ~LanguageModel() {
         std::cout << "[Base] LanguageModel destroyed.\n";
     }
-    virtual void train(const std::string& text) = 0; //pure virtual functions
-    virtual char predictNext(char current) const = 0;
 
-    std::string generateSentence(char start_char, int length) const {
-        std::string result = "";
-        result += start_char; // Добавляем первую букву
+    // ИЗМЕНЕНО: Теперь принимаем и возвращаем std::string (СЛОВА)
+    virtual void train(const std::string& text) = 0;
+    [[nodiscard]] virtual std::string predictNext(const std::string& current_word) const = 0;
 
-        char current = start_char;
+    // ИЗМЕНЕНО: Генерация работает со словами и вставляет пробелы
+    std::string generateSentence(const std::string& start_word, int length) const {
+        std::string result = start_word;
+        std::string current = start_word;
+
         for (int i = 0; i < length - 1; ++i) {
-            char next = predictNext(current); // Угадываем следующую
+            std::string next = predictNext(current);
 
-            // УБРАЛИ строчку с break, чтобы модель генерировала длинный текст с пробелами!
+            // Если модель не знает, что идет дальше (слово встретилось 1 раз в конце текста)
+            if (next.empty()) break;
 
-            result += next; // Приклеиваем к результату
-            current = next; // Новая буква становится текущей для следующего шага
+            result += " " + next; // Склеиваем слова пробелом!
+            current = next;
         }
         return result;
     }
 };
 
-class BigramModel : public LanguageModel { //класс - наследник
+class BigramModel : public LanguageModel {
 private:
-    //сетка, в которой храню данные
-    std::vector<std::vector<int>> counts;
-    //ДОБАВЛЕНО: Генератор случайных чисел
-    //mutable нужен, чтобы генератор мог менять свое внутреннее состояние внутри const-функции
+    // ИЗМЕНЕНО: Сложный словарь.
+    // Читается так: "Слово А" -> ("Слово Б" -> 5 раз, "Слово В" -> 2 раза)
+    std::unordered_map<std::string, std::unordered_map<std::string, int>> word_counts;
     mutable std::mt19937 gen;
 
 public:
     BigramModel() {
-        counts.resize(VOCAB_SIZE, std::vector<int>(VOCAB_SIZE, 0)); //конструктор
-        //настраиваем стартовое значение (seed) для генератора
         std::random_device rd;
         gen = std::mt19937(rd());
     }
 
-    void train(const std::string& text) override { //составляю пары
-        if (text.length() < 2) return;
-        for (size_t i = 0; i < text.length() - 1; ++i) {
-            unsigned char current_char = text[i];
-            unsigned char next_char = text[i + 1];
+    void train(const std::string& text) override {
+        // ИЗМЕНЕНО: std::istringstream автоматически разбивает текст на слова по пробелам!
+        std::istringstream stream(text);
+        std::string prev_word, curr_word;
 
-            counts[current_char][next_char]++; //повышаю кол-во на 1
-        }
-        std::cout << "Model trained successfully on " << text.length() << " characters!\n";
-    }
-
-    char predictNext(char current) const override { //функция, которая предугатывает некст букву
-        unsigned char curr = current;
-
-        // Берем строку с частотами для нашей буквы
-        const auto& row = counts[curr];
-
-        // Проверяем, есть ли вообще варианты продолжения (видели ли мы эту букву в тексте)
-        bool has_options = false;
-        for (int count : row) {
-            if (count > 0) {
-                has_options = true;
-                break;
+        // Читаем самое первое слово
+        if (stream >> prev_word) {
+            // Пока в тексте есть следующие слова, читаем их по очереди
+            while (stream >> curr_word) {
+                word_counts[prev_word][curr_word]++; // Повышаем счетчик пары слов
+                prev_word = curr_word;               // Текущее слово становится предыдущим
             }
         }
+        std::cout << "Model trained successfully on word pairs!\n";
+    }
 
-        if (!has_options) {
-            return ' '; //если моделька никогда эту букву не видела, то она возвращает пробел
+    std::string predictNext(const std::string& current_word) const override {
+        // Ищем текущее слово в нашем словаре
+        auto it = word_counts.find(current_word);
+
+        // Если слова нет в словаре или после него никогда не было других слов
+        if (it == word_counts.end() || it->second.empty()) {
+            return "";
         }
-        //создаем рулетку на основе частот (аналог torch.multinomial)
-        std::discrete_distribution<> dist(row.begin(), row.end());
-        //крутим рулетку и получаем индекс буквы
-        int next_char_index = dist(gen);
 
-        return static_cast<char>(next_char_index);
+        // Подготавливаем списки для рулетки
+        std::vector<int> frequencies;
+        std::vector<std::string> words;
+
+        // it->second — это все слова, которые шли после current_word
+        for (const auto& pair : it->second) {
+            words.push_back(pair.first);    // Сохраняем само слово
+            frequencies.push_back(pair.second); // Сохраняем, сколько раз оно встретилось
+        }
+
+        // Создаем рулетку на основе частот
+        std::discrete_distribution<> dist(frequencies.begin(), frequencies.end());
+        int next_word_index = dist(gen); // Крутим рулетку
+
+        return words[next_word_index]; // Возвращаем выпавшее слово
     }
 };
 
@@ -125,13 +125,15 @@ int main() {
         std::optional<std::string> dataset = loader.loadText(path);
 
         if (dataset.has_value()) {
-
             std::unique_ptr<LanguageModel> my_model = std::make_unique<BigramModel>();
             my_model->train(dataset.value());
+
             std::vector<std::unique_ptr<LanguageModel>> pipeline;
             pipeline.push_back(std::move(my_model));
-            //200 символов для генерации слов
-            std::string output = pipeline[0]->generateSentence('t', 200);
+
+            std::cout << "\nGenerating text starting with 'I':\n";
+            // ИЗМЕНЕНО: Передаем стартовое слово (например "I" или "The") и просим 50 слов!
+            std::string output = pipeline[0]->generateSentence("I", 50);
             std::cout << output << "\n";
 
         } else {
@@ -139,7 +141,6 @@ int main() {
         }
     } catch (const FileIOException& error) {
         std::cerr << "CRITICAL ERROR: " << error.what() << "\n";
-        std::cerr << "The 'bigrame.txt' file doesn't created!\n";
     }
 
     return 0;
