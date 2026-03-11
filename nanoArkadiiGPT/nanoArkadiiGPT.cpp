@@ -13,7 +13,7 @@ batch_size = 4,
 block_size = 8,
 vocab_size = 65,
 learning_amount = 10000,
-embed_dim_num = 32,
+embed_dim_num = 32, // n_embd
 head_size = 32;
 auto device = (torch::cuda::is_available()) ? "cuda" : "cpu";
 
@@ -87,6 +87,24 @@ struct MultiHeadAttentionImpl : torch::nn::Module {
     }
 };
 TORCH_MODULE(MultiHeadAttention);
+
+struct FeedForwardImpl : torch::nn::Module {
+    torch::nn::Sequential mod = nullptr;
+    FeedForwardImpl() = default;
+    FeedForwardImpl(int embed_dim_num) {
+        mod = register_module(
+            "mod",
+            torch::nn::Sequential(
+                torch::nn::Linear(embed_dim_num, embed_dim_num),
+                torch::nn::ReLU()
+                )
+            );
+    }
+    torch::Tensor forward(torch::Tensor x) {
+        return mod->forward(x);
+    }
+};
+TORCH_MODULE(FeedForward);
 
 struct BigramImpl : torch::nn::Module {
 
