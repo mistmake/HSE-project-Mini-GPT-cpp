@@ -15,6 +15,7 @@ vocab_size = 65,
 learning_amount = 50000,
 embed_dim_num = 32, // n_embd
 head_size = 32;
+constexpr float dropout = 0.0;
 auto device = (torch::cuda::is_available()) ? "cuda" : "cpu";
 
 std::string vocab = " !$&',-.3:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -26,6 +27,7 @@ struct HeadImpl : torch::nn::Module {
     torch::nn::Linear key = nullptr;
     torch::nn::Linear value = nullptr;
     torch::Tensor mask = torch::Tensor(nullptr);
+    torch::nn::Dropout drop = nullptr;
 
     HeadImpl() = default;
     HeadImpl(int head_size) {
@@ -42,6 +44,10 @@ struct HeadImpl : torch::nn::Module {
     "value",
     torch::nn::Linear(torch::nn::LinearOptions(embed_dim_num, head_size).bias(false))
     );
+        drop = register_module(
+            "drop",
+            torch::nn::Dropout(dropout)
+            );
     }
 
     torch::Tensor forward(torch::Tensor& x) {
@@ -56,6 +62,7 @@ struct HeadImpl : torch::nn::Module {
             float(-INFINITY)
             );
         w = F::softmax(w, F::SoftmaxFuncOptions(-1));
+        w = drop(w);
         auto res = w.matmul(V);
         return res;
 
@@ -66,6 +73,7 @@ TORCH_MODULE(Head);
 struct MultiHeadAttentionImpl : torch::nn::Module {
     torch::nn::ModuleList heads = nullptr;
     torch::nn::Linear projection = nullptr;
+    torch::nn::Dropout drop = nullptr;
     MultiHeadAttentionImpl(int heads_amount, int head_size) {
         heads = register_module(
             "heads",
@@ -78,6 +86,10 @@ struct MultiHeadAttentionImpl : torch::nn::Module {
             "projection",
             torch::nn::Linear(embed_dim_num, embed_dim_num)
             );
+        drop = register_module(
+            "drop",
+            torch::nn::Dropout(dropout)
+            );
     }
     MultiHeadAttentionImpl() = default;
     torch::Tensor forward(torch::Tensor x) {
@@ -86,7 +98,7 @@ struct MultiHeadAttentionImpl : torch::nn::Module {
             auto h = raw->as<Head>();
             rawres.push_back(h->forward(x));
         }
-        return projection(torch::cat(rawres, -1));
+        return drop(projection(torch::cat(rawres, -1)));
     }
 };
 TORCH_MODULE(MultiHeadAttention);
@@ -100,7 +112,8 @@ struct FeedForwardImpl : torch::nn::Module {
             torch::nn::Sequential(
                 torch::nn::Linear(embed_dim_num, embed_dim_num * 4),
                 torch::nn::ReLU(),
-                torch::nn::Linear(embed_dim_num * 4, embed_dim_num)
+                torch::nn::Linear(embed_dim_num * 4, embed_dim_num),
+                torch::nn::Dropout(dropout)
                 )
             );
     }
@@ -113,6 +126,8 @@ TORCH_MODULE(FeedForward);
 struct TransformerBlockImpl : torch::nn::Module {
     MultiHeadAttention att = nullptr;
     FeedForward feed = nullptr;
+    torch::nn::LayerNorm ln1 = nullptr;
+    torch::nn::LayerNorm ln2 = nullptr;
 
     TransformerBlockImpl() = default;
 
@@ -126,10 +141,18 @@ struct TransformerBlockImpl : torch::nn::Module {
             "feed",
             FeedForward(embed_dim_num)
             );
+        ln1 = register_module(
+            "ln1",
+            torch::nn::LayerNorm(torch::nn::LayerNormOptions({embed_dim_num}))
+            );
+        ln2 = register_module(
+        "ln2",
+        torch::nn::LayerNorm(torch::nn::LayerNormOptions({embed_dim_num}))
+            );
     }
     torch::Tensor forward(torch::Tensor x) {
-        x = x + att(x);
-        x = x + feed(x);
+        x = x + att(ln1(x));
+        x = x + feed(ln2(x));
         return x;
     }
 };
@@ -162,7 +185,8 @@ struct BigramImpl : torch::nn::Module {
             torch::nn::Sequential(
                 TransformerBlock(embed_dim_num, 4),
                 TransformerBlock(embed_dim_num, 4),
-                TransformerBlock(embed_dim_num, 4)
+                TransformerBlock(embed_dim_num, 4),
+                torch::nn::LayerNorm(torch::nn::LayerNormOptions({embed_dim_num}))
             )
             );
     }
@@ -237,7 +261,7 @@ int main() {
     for (int i = 0; i < vocab.size(); ++i) {
         stoi[vocab[i]] = i;
     }
-    std::ifstream data("../nanoArkadiiGPT/data/Shakespeare.txt");
+    std::ifstream data("../nanoArkadiiGPT/data/tinystories_sample.txt");
     if (!data) {
         std::cout << "Файл не открылся\n";
         return 1;
@@ -271,7 +295,7 @@ int main() {
         optim.zero_grad();
         loss.backward();
         optim.step();
-        if (i == 0 or i == learning_amount - 1) {
+        if (i % 10000 == 0) {
             std::cout << loss.item() << "\n";
         }
     }
