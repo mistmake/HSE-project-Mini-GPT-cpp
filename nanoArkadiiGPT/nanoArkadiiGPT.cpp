@@ -12,7 +12,7 @@ constexpr int
 batch_size = 4,
 block_size = 8,
 vocab_size = 65,
-learning_amount = 10000,
+learning_amount = 50000,
 embed_dim_num = 32, // n_embd
 head_size = 32;
 auto device = (torch::cuda::is_available()) ? "cuda" : "cpu";
@@ -106,12 +106,38 @@ struct FeedForwardImpl : torch::nn::Module {
 };
 TORCH_MODULE(FeedForward);
 
+struct TransformerBlockImpl : torch::nn::Module {
+    MultiHeadAttention att = nullptr;
+    FeedForward feed = nullptr;
+
+    TransformerBlockImpl() = default;
+
+    TransformerBlockImpl(int embed_dim_num, int head_amount) {
+        int head_size = embed_dim_num / head_amount;
+        att = register_module(
+            "att",
+            MultiHeadAttention(head_size, head_amount)
+            );
+        feed = register_module(
+            "feed",
+            FeedForward(embed_dim_num)
+            );
+    }
+    torch::Tensor forward(torch::Tensor x) {
+        x = att(x);
+        x = feed(x);
+        return x;
+    }
+};
+
+
 struct BigramImpl : torch::nn::Module {
 
     torch::nn::Embedding embedding_table = nullptr;
     torch::nn::Linear main_head = nullptr;
     torch::nn::Embedding position_embedding = nullptr;
     MultiHeadAttention attention;
+    FeedForward feed;
 
     /// @param vocab_size -
     BigramImpl() {
@@ -131,7 +157,10 @@ struct BigramImpl : torch::nn::Module {
             "attention_head",
             MultiHeadAttention(4, head_size/4)
             );
-
+        feed = register_module(
+            "feed",
+            FeedForward(embed_dim_num)
+            );
     }
     torch::Tensor forward(torch::Tensor& idx) {
         auto idxTime = idx.size(1);
@@ -139,6 +168,7 @@ struct BigramImpl : torch::nn::Module {
         auto position_embed = position_embedding(torch::arange(idxTime));
         auto X = tokens_embed + position_embed;
         X = attention(X);
+        X = feed(X);
         auto logits = main_head(X);
         return logits;
     }
@@ -150,6 +180,7 @@ struct BigramImpl : torch::nn::Module {
         auto position_embed = position_embedding(torch::arange(idxTime));
         auto X = tokens_embed + position_embed;
         X = attention(X);
+        X = feed(X);
         auto logits = main_head(X);
         auto B = logits.size(0);
         auto T = logits.size(1);
