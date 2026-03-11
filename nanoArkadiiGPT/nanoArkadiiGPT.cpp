@@ -9,14 +9,14 @@
 namespace F = torch::nn::functional;
 
 constexpr int
-batch_size = 4,
-block_size = 8,
+batch_size = 64,
+block_size = 256,
 vocab_size = 65,
 learning_amount = 50000,
-embed_dim_num = 32, // n_embd
-head_size = 32;
-constexpr float dropout = 0.0;
-auto device = (torch::cuda::is_available()) ? "cuda" : "cpu";
+embed_dim_num = 384, // n_embd
+head_number = 6;
+constexpr float dropout = 0.2;
+torch::Device device(torch::cuda::is_available() ? torch::kCUDA : torch::kCPU);
 
 std::string vocab = " !$&',-.3:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
@@ -135,7 +135,7 @@ struct TransformerBlockImpl : torch::nn::Module {
         int head_size = embed_dim_num / head_amount;
         att = register_module(
             "att",
-            MultiHeadAttention(head_size, head_amount)
+            MultiHeadAttention(head_amount, head_size)
             );
         feed = register_module(
             "feed",
@@ -183,9 +183,12 @@ struct BigramImpl : torch::nn::Module {
         transformers = register_module(
             "transformers",
             torch::nn::Sequential(
-                TransformerBlock(embed_dim_num, 4),
-                TransformerBlock(embed_dim_num, 4),
-                TransformerBlock(embed_dim_num, 4),
+                TransformerBlock(embed_dim_num, head_number),
+                TransformerBlock(embed_dim_num, head_number),
+                TransformerBlock(embed_dim_num, head_number),
+                TransformerBlock(embed_dim_num, head_number),
+                TransformerBlock(embed_dim_num, head_number),
+                TransformerBlock(embed_dim_num, head_number),
                 torch::nn::LayerNorm(torch::nn::LayerNormOptions({embed_dim_num}))
             )
             );
@@ -193,7 +196,12 @@ struct BigramImpl : torch::nn::Module {
     torch::Tensor forward(torch::Tensor& idx) {
         auto idxTime = idx.size(1);
         auto tokens_embed = embedding_table(idx);
-        auto position_embed = position_embedding(torch::arange(idxTime));
+        auto position_embed = position_embedding(
+            torch::arange(
+                idxTime,
+                torch::TensorOptions().dtype(torch::kLong).device(idx.device())
+                )
+                );
         auto X = tokens_embed + position_embed;
         X = transformers->forward(X);
         auto logits = main_head(X);
@@ -204,7 +212,12 @@ struct BigramImpl : torch::nn::Module {
     std::pair<torch::Tensor, torch::Tensor> forward(const torch::Tensor& idx, torch::Tensor& targets) {
         auto idxTime = idx.size(1);
         auto tokens_embed = embedding_table(idx);
-        auto position_embed = position_embedding(torch::arange(idxTime));
+        auto position_embed = position_embedding(
+            torch::arange(
+                idxTime,
+                torch::TensorOptions().dtype(torch::kLong).device(idx.device())
+                )
+                );
         auto X = tokens_embed + position_embed;
         X = transformers->forward(X);
         auto logits = main_head(X);
@@ -251,7 +264,11 @@ std::pair<torch::Tensor, torch::Tensor> get_batch( torch::Tensor data) {
 }
 
 void generate_and_cout(Bigram& model, int amount) {
-    auto raw = model->generate(torch::zeros({1, 1}, torch::TensorOptions(torch::kLong)), amount);
+    auto raw = model->generate(torch::zeros(
+        {1, 1}, torch::TensorOptions(torch::kLong).device(device)),
+        amount
+        );
+    raw =raw.to(torch::kCPU);
     for (int i = 0; i < raw.numel(); ++i) {
         std::cout << vocab[raw[0][i].item<int>()];
     }
@@ -275,9 +292,7 @@ int main() {
         encoded.push_back(stoi[c]);
     }
 
-    torch::Tensor fulldata = torch::tensor(encoded);
-    auto train_data = fulldata.slice(0, 0, static_cast<int>(fulldata.numel() * 0.9));
-    auto test_data = fulldata.slice(0, static_cast<int>(fulldata.numel() * 0.9));
+    torch::Tensor fulldata = torch::tensor(encoded, torch::TensorOptions().dtype(torch::kLong));
     torch::Tensor test = torch::randint(
         0,
         vocab_size,
@@ -286,10 +301,13 @@ int main() {
         );
 
     Bigram model;
+    model->to(device);
     generate_and_cout(model, 100);
-    auto optim = torch::optim::AdamW(model->parameters(), torch::optim::AdamWOptions(1e-3));
+    auto optim = torch::optim::AdamW(model->parameters(), torch::optim::AdamWOptions(3e-4));
     for (int i = 0; i < learning_amount; ++i) {
         auto [xb, yb] = get_batch(fulldata);
+        xb = xb.to(device);
+        yb = yb.to(device);
         auto [logits, loss] = model->forward(xb, yb);
 
         optim.zero_grad();
