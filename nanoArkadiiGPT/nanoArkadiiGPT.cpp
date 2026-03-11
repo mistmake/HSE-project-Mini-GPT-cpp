@@ -12,7 +12,7 @@ constexpr int
 batch_size = 4,
 block_size = 8,
 vocab_size = 65,
-learning_amount = 50000,
+learning_amount = 10000,
 embed_dim_num = 32,
 head_size = 32;
 auto device = (torch::cuda::is_available()) ? "cuda" : "cpu";
@@ -25,8 +25,10 @@ struct HeadImpl : torch::nn::Module {
     torch::nn::Linear query = nullptr;
     torch::nn::Linear key = nullptr;
     torch::nn::Linear value = nullptr;
-    torch::Tensor mask;
-    HeadImpl() {
+    torch::Tensor mask = torch::Tensor(nullptr);
+
+    HeadImpl() = default;
+    HeadImpl(int head_size) {
         mask = register_buffer("mask", torch::tril(torch::ones({block_size, block_size})));
         query = register_module(
             "query",
@@ -63,13 +65,35 @@ struct HeadImpl : torch::nn::Module {
 };
 TORCH_MODULE(Head);
 
+struct MultiHeadAttentionImpl : torch::nn::Module {
+    torch::nn::ModuleList heads = nullptr;
+    MultiHeadAttentionImpl(int heads_amount, int head_size) {
+        heads = register_module(
+            "heads",
+            torch::nn::ModuleList()
+            );
+        for (int i = 0; i < heads_amount; ++i) {
+            heads->push_back(Head(head_size));
+        }
+    }
+    MultiHeadAttentionImpl() = default;
+    torch::Tensor forward(torch::Tensor x) {
+        std::vector<torch::Tensor> rawres;
+        for (auto& raw : *heads) {
+            auto h = raw->as<Head>();
+            rawres.push_back(h->forward(x));
+        }
+        return torch::cat(rawres, -1);
+    }
+};
+TORCH_MODULE(MultiHeadAttention);
 
 struct BigramImpl : torch::nn::Module {
 
     torch::nn::Embedding embedding_table = nullptr;
     torch::nn::Linear main_head = nullptr;
     torch::nn::Embedding position_embedding = nullptr;
-    Head attention_head;
+    MultiHeadAttention attention;
 
     /// @param vocab_size -
     BigramImpl() {
@@ -85,9 +109,9 @@ struct BigramImpl : torch::nn::Module {
             "position_embedding",
             torch::nn::Embedding(block_size, embed_dim_num)
             );
-        attention_head = register_module(
+        attention = register_module(
             "attention_head",
-            Head()
+            MultiHeadAttention(4, head_size/4)
             );
 
     }
@@ -96,7 +120,7 @@ struct BigramImpl : torch::nn::Module {
         auto tokens_embed = embedding_table(idx);
         auto position_embed = position_embedding(torch::arange(idxTime));
         auto X = tokens_embed + position_embed;
-        X = attention_head(X);
+        X = attention(X);
         auto logits = main_head(X);
         return logits;
     }
@@ -107,7 +131,7 @@ struct BigramImpl : torch::nn::Module {
         auto tokens_embed = embedding_table(idx);
         auto position_embed = position_embedding(torch::arange(idxTime));
         auto X = tokens_embed + position_embed;
-        X = attention_head(X);
+        X = attention(X);
         auto logits = main_head(X);
         auto B = logits.size(0);
         auto T = logits.size(1);
@@ -128,6 +152,7 @@ struct BigramImpl : torch::nn::Module {
             logits = logits.index({torch::indexing::Slice(), -1, torch::indexing::Slice()});
             auto probs = F::softmax(logits, F::SoftmaxFuncOptions(-1));
             auto pred = torch::multinomial(probs, 1);
+            //auto pred = torch::argmax(probs, 1).unsqueeze(1);
             idx = torch::cat({idx, pred}, 1);
         }
         return idx;
