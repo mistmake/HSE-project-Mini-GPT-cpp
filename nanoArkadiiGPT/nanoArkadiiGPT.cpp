@@ -45,9 +45,7 @@ struct HeadImpl : torch::nn::Module {
     }
 
     torch::Tensor forward(torch::Tensor& x) {
-        auto B = x.size(0);
         auto T = x.size(1);
-        auto C = x.size(2);
         auto K = key(x);
         auto Q = query(x);
         auto V = value(x);
@@ -67,6 +65,7 @@ TORCH_MODULE(Head);
 
 struct MultiHeadAttentionImpl : torch::nn::Module {
     torch::nn::ModuleList heads = nullptr;
+    torch::nn::Linear projection = nullptr;
     MultiHeadAttentionImpl(int heads_amount, int head_size) {
         heads = register_module(
             "heads",
@@ -75,6 +74,10 @@ struct MultiHeadAttentionImpl : torch::nn::Module {
         for (int i = 0; i < heads_amount; ++i) {
             heads->push_back(Head(head_size));
         }
+        projection = register_module(
+            "projection",
+            torch::nn::Linear(embed_dim_num, embed_dim_num)
+            );
     }
     MultiHeadAttentionImpl() = default;
     torch::Tensor forward(torch::Tensor x) {
@@ -83,7 +86,7 @@ struct MultiHeadAttentionImpl : torch::nn::Module {
             auto h = raw->as<Head>();
             rawres.push_back(h->forward(x));
         }
-        return torch::cat(rawres, -1);
+        return projection(torch::cat(rawres, -1));
     }
 };
 TORCH_MODULE(MultiHeadAttention);
@@ -95,8 +98,9 @@ struct FeedForwardImpl : torch::nn::Module {
         mod = register_module(
             "mod",
             torch::nn::Sequential(
-                torch::nn::Linear(embed_dim_num, embed_dim_num),
-                torch::nn::ReLU()
+                torch::nn::Linear(embed_dim_num, embed_dim_num * 4),
+                torch::nn::ReLU(),
+                torch::nn::Linear(embed_dim_num * 4, embed_dim_num)
                 )
             );
     }
@@ -124,11 +128,12 @@ struct TransformerBlockImpl : torch::nn::Module {
             );
     }
     torch::Tensor forward(torch::Tensor x) {
-        x = att(x);
-        x = feed(x);
+        x = x + att(x);
+        x = x + feed(x);
         return x;
     }
 };
+TORCH_MODULE(TransformerBlock);
 
 
 struct BigramImpl : torch::nn::Module {
@@ -136,8 +141,7 @@ struct BigramImpl : torch::nn::Module {
     torch::nn::Embedding embedding_table = nullptr;
     torch::nn::Linear main_head = nullptr;
     torch::nn::Embedding position_embedding = nullptr;
-    MultiHeadAttention attention;
-    FeedForward feed;
+    torch::nn::Sequential transformers = nullptr;
 
     /// @param vocab_size -
     BigramImpl() {
@@ -153,13 +157,13 @@ struct BigramImpl : torch::nn::Module {
             "position_embedding",
             torch::nn::Embedding(block_size, embed_dim_num)
             );
-        attention = register_module(
-            "attention_head",
-            MultiHeadAttention(4, head_size/4)
-            );
-        feed = register_module(
-            "feed",
-            FeedForward(embed_dim_num)
+        transformers = register_module(
+            "transformers",
+            torch::nn::Sequential(
+                TransformerBlock(embed_dim_num, 4),
+                TransformerBlock(embed_dim_num, 4),
+                TransformerBlock(embed_dim_num, 4)
+            )
             );
     }
     torch::Tensor forward(torch::Tensor& idx) {
@@ -167,8 +171,7 @@ struct BigramImpl : torch::nn::Module {
         auto tokens_embed = embedding_table(idx);
         auto position_embed = position_embedding(torch::arange(idxTime));
         auto X = tokens_embed + position_embed;
-        X = attention(X);
-        X = feed(X);
+        X = transformers->forward(X);
         auto logits = main_head(X);
         return logits;
     }
@@ -179,8 +182,7 @@ struct BigramImpl : torch::nn::Module {
         auto tokens_embed = embedding_table(idx);
         auto position_embed = position_embedding(torch::arange(idxTime));
         auto X = tokens_embed + position_embed;
-        X = attention(X);
-        X = feed(X);
+        X = transformers->forward(X);
         auto logits = main_head(X);
         auto B = logits.size(0);
         auto T = logits.size(1);
