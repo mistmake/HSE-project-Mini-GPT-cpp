@@ -85,7 +85,7 @@ constexpr bool IsIgnoredControl(unsigned char c) {
 }
 
 // read the text file and call on_line for each its line
-std::optional<std::string> ReadDatasetText(const fs::path& file) {
+std::optional<std::string> ReadDataset(const fs::path& file) {
   std::ifstream in(file, std::ios::binary);
   if (!in) return std::nullopt;
 
@@ -250,4 +250,16 @@ std::vector<TokenFreq> BuildFinalTokens(const std::vector<TokenFreq>& punct, con
   for (const auto& t : words) add(t.token, t.freq); // ------//------
   for (const auto& t : pieces) add(t.token, t.freq);// ------//------
   return out;
+}
+
+
+// write token list file (one token per line for better work with them in the future)
+bool WriteTokenList(const fs::path& output, const std::vector<TokenFreq>& tokens) {
+  std::error_code ec;
+  fs::create_directories(output.parent_path(), ec);
+
+  std::ofstream out(output);
+  if (!out) return false;
+  for (const auto& t : tokens) out << t.token << '\n';
+  return static_cast<bool>(out);
 }
