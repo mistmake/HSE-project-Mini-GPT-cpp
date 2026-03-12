@@ -319,6 +319,47 @@ int main() {
     if (cfg.max_vocab > 0) max_vocab_opt = cfg.max_vocab;
 
 
+    {
+      ScopedTimer timer(elapsed_ms);
+
+      const auto dataset_opt = ReadDataset(cfg.dataset_path);
+      if (!dataset_opt.has_value()) {
+        throw DatasetReadError("failed to read dataset :( " + fs::absolute(cfg.dataset_path).string());
+      }
+
+      const std::string& dataset = *dataset_opt;
+      std::size_t start = 0;
+      while (start <= dataset.size()) {
+        const std::size_t end = dataset.find('\n', start);
+        if (end == std::string::npos) {
+          ++stats->lines;
+          ProcessLine(dataset.substr(start), cfg, word_filters, words, punct);
+          break;
+        }
+        ++stats->lines;
+        ProcessLine(dataset.substr(start, end - start), cfg, word_filters, words, punct);
+        start = end + 1;
+      }
+
+      stats->dataset_read = true;
+
+      const auto punct_sorted = SortByFreq(punct, 1);
+      const auto words_sorted = SortByFreq(words, cfg.min_word_freq);
+      const auto pieces_sorted = BuildPieces(words_sorted, cfg);
+      const auto final_tokens = BuildFinalTokens(punct_sorted, words_sorted, pieces_sorted, max_vocab_opt);
+
+      if (!WriteTokenList(cfg.token_list_output_path, final_tokens)) {
+        throw WriteError("Failed to write token list: " + cfg.token_list_output_path.string());
+      }
+
+      stats->punct = punct_sorted.size();
+      stats->words = words_sorted.size();
+      stats->pieces = pieces_sorted.size();
+      stats->final_tokens = final_tokens.size();
+    }
+
+
+
 
   } catch (const ConfigError& e) {
     std::cerr << e.what() << '\n';
