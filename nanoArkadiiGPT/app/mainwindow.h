@@ -313,9 +313,6 @@ private:
 
     void setupTextEdit()
     {
-        ui.plainTextEdit->setPlaceholderText(
-            "Введите текст. Если поле пустое, модель будет генерировать с нуля."
-        );
     }
 
     void onGenerateClicked()
@@ -358,35 +355,9 @@ private:
         return text.right(maxTokens);
     }
 
-    // ------------------------------------------------------------
-    // НИЖЕ ТОЛЬКО КАРКАС ПОД ТВОЙ КОД
-    // ЗДЕСЬ НЕ ЗАГЛУШКА ДЛЯ UI, А ПРОСТО МЕСТО,
-    // КУДА ТЫ ВСТАВИШЬ СВОЙ TORCH-КОД
-    // ------------------------------------------------------------
-
     QString runBigramGeneration(const QString& context, int wordsToGenerate)
     {
-        // ========================================================
-        // ПРИМЕР ЛОГИКИ:
-        //
-        // 1. Перевести QString -> std::string
-        // 2. Закодировать в char-level токены
-        // 3. Собрать тензор контекста
-        //    если context пустой -> передать пустой тензор / стартовый контекст
-        // 4. Вызвать model0
-        // 5. Декодировать результат обратно в QString
-        // ========================================================
-
         std::string input = context.toStdString();
-
-        // ТУТ БУДЕТ ТВОЙ КОД
-        // Например:
-        //
-        // auto encoded = encode(input);
-        // auto result = model0->generate(...);
-        // std::string output = decode(result);
-        //
-        // return QString::fromStdString(output);
 
         return QString();
     }
@@ -395,14 +366,6 @@ private:
     {
         std::string input = context.toStdString();
         std::vector<int> coded;
-        // ТУТ БУДЕТ ТВОЙ КОД
-        // Например:
-        //
-        // auto encoded = encode(input);
-        // auto result = model1->generate(...);
-        // std::string output = decode(result);
-        //
-        // return QString::fromStdString(output);
 
         for (char c : input) {
             coded.push_back(stoi[c]);

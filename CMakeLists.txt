@@ -15,7 +15,6 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets)
 add_executable(main
         nanoArkadiiGPT/app/app.cpp
         nanoArkadiiGPT/app/mainwindow.h
-        nanoArkadiiGPT/nanoArkadiiGPT.cpp
 )
 
 target_link_libraries(main PRIVATE ${TORCH_LIBRARIES} Qt6::Widgets)
