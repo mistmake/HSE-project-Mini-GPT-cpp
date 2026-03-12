@@ -222,3 +222,32 @@ std::vector<TokenFreq> BuildPieces(const std::vector<TokenFreq>& words, const Co
 
   return SortByFreq(pieces, cfg.min_piece_freq);
 }
+
+// build final token list with optional max_vocab limit
+std::vector<TokenFreq> BuildFinalTokens(const std::vector<TokenFreq>& punct, const std::vector<TokenFreq>& words, const std::vector<TokenFreq>& pieces, std::optional<std::size_t> max_vocab) {
+  std::vector<TokenFreq> out;
+  std::unordered_set<std::string> seen;
+  if (max_vocab.has_value()) {
+    out.reserve(*max_vocab);
+  }
+
+  if (max_vocab.has_value()) {
+    seen.reserve((*max_vocab) * 2 + 32);
+  } else {
+    seen.reserve((words.size() + pieces.size()) * 2 + 32);
+  }
+
+  auto add = [&](const std::string& token, std::uint64_t freq) {
+    if (!token.empty() && (!max_vocab.has_value() || out.size() < *max_vocab) && seen.insert(token).second) {
+      out.push_back({token, freq});
+    }
+  };
+
+  for (const auto* special : kSpecialTokens) add(special, 0);
+
+
+  for (const auto& t : punct) add(t.token, t.freq); // t - {string, freq} na we map it around punct
+  for (const auto& t : words) add(t.token, t.freq); // ------//------
+  for (const auto& t : pieces) add(t.token, t.freq);// ------//------
+  return out;
+}
