@@ -76,6 +76,8 @@ struct Stats {
     std::size_t punct = 0;
     std::size_t words = 0;
     std::size_t final_tokens = 0;
+    std::size_t pieces = 0;
+
 };
 
 constexpr std::array<const char*, 6> kSpecialTokens = {"<pad>", "<unk>", "<bos>", "<eos>", "<tab>", "<nl>"};
@@ -83,6 +85,23 @@ constexpr std::array<const char*, 6> kSpecialTokens = {"<pad>", "<unk>", "<bos>"
 constexpr bool IsIgnoredControl(unsigned char c) {
   return c < 32 && c != '\t';
 }
+
+// abstract filter and polymorphism
+struct WordFilter {
+  virtual ~WordFilter() = default;
+  virtual bool keep(const std::string& word) const = 0;
+};
+
+struct MaxWordLenFilter : WordFilter {
+  explicit MaxWordLenFilter(std::size_t max_len) : max_len(max_len) {}
+
+  bool keep(const std::string& word) const override {
+    return word.size() <= max_len;
+  }
+
+  std::size_t max_len;
+};
+
 
 // read the text file and call on_line for each its line
 std::optional<std::string> ReadDataset(const fs::path& file) {
@@ -262,4 +281,56 @@ bool WriteTokenList(const fs::path& output, const std::vector<TokenFreq>& tokens
   if (!out) return false;
   for (const auto& t : tokens) out << t.token << '\n';
   return static_cast<bool>(out);
+}
+
+
+
+
+
+
+int main() {
+  const Config cfg{};
+  // here i use shared_ptr processing and output block share one stats object
+  // (it useful to use it here also because of lifetime duration at the same value as the whole program)
+  // moreover, unique_ptr is not enough in this case as both owners need same object at the same moment
+  auto stats = std::make_shared<Stats>();
+  long long elapsed_ms = 0;
+
+  try {
+    if (cfg.dataset_path.empty()) {
+      throw ConfigError("dataset_path is empty :( ");
+    }
+    if (!fs::is_regular_file(cfg.dataset_path)) {
+      throw ConfigError("dataset file is not found :(  " + fs::absolute(cfg.dataset_path).string());
+    }
+    //second realization idea was through std::cerr
+
+
+
+    FreqMap words;
+    FreqMap punct;
+    words.reserve(500000);
+    punct.reserve(256);
+    // unique_ptr and polymorphism here (as it was said to be used in the project)
+    std::vector<std::unique_ptr<WordFilter> > word_filters;
+    word_filters.push_back(std::make_unique<MaxWordLenFilter>(cfg.max_word_len));
+
+    std::optional<std::size_t> max_vocab_opt = std::nullopt;
+    if (cfg.max_vocab > 0) max_vocab_opt = cfg.max_vocab;
+
+
+
+  } catch (const ConfigError& e) {
+    std::cerr << e.what() << '\n';
+    return 666;
+  } catch (const DatasetReadError& e) {
+    std::cerr << e.what() << '\n';
+    return 666;
+  } catch (const WriteError& e) {
+    std::cerr << e.what() << '\n';
+    return 666;
+  } catch (const std::exception& e) {
+    std::cerr << "Unexpected error: " << e.what() << '\n';
+    return 666;
+  }
 }
