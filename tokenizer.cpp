@@ -77,3 +77,93 @@ struct Stats {
     std::size_t words = 0;
     std::size_t final_tokens = 0;
 };
+
+constexpr std::array<const char*, 6> kSpecialTokens = {"<pad>", "<unk>", "<bos>", "<eos>", "<tab>", "<nl>"};
+
+constexpr bool IsIgnoredControl(unsigned char c) {
+  return c < 32 && c != '\t';
+}
+
+// read the text file and call on_line for each its line
+std::optional<std::string> ReadDatasetText(const fs::path& file) {
+  std::ifstream in(file, std::ios::binary);
+  if (!in) return std::nullopt;
+
+  std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  if (text.empty()) return std::nullopt;
+
+  std::size_t start = 0;
+  while (start <= text.size()) {
+    const std::size_t end = text.find('\n', start);
+    if (end == std::string::npos) break;
+    start = end + 1;
+  }
+  return text;
+}
+
+bool IsWord(unsigned const char c) {
+  return std::isalnum(c) || c == '\'' || c == '-' || c == '_'; // alnum is alphanumeric char
+}
+
+bool IsPunct(unsigned char c) {
+  return std::ispunct(c) != 0; // punct is punctuation char
+}
+
+// variant for parsed line items and std::visit
+using ParsedItem = std::variant<std::string, char>;
+
+// parse a line into words and punctuation and update frequency maps
+void ProcessLine(const std::string& line, const Config& cfg, const std::vector<std::unique_ptr<WordFilter>>& word_filters, FreqMap& words, FreqMap& punct) {
+  std::string current;
+  current.reserve(32);
+
+  std::vector<ParsedItem> parsed;
+  parsed.reserve(line.size() / 2 + 1);
+
+  auto flush_word = [&]() {
+    if (current.empty()) return;
+
+    bool keep_word = true;
+    for (const auto& f : word_filters) {
+      if (!f->keep(current)) {
+        keep_word = false;
+        break;
+      }
+    }
+
+    if (keep_word) parsed.push_back(current);
+    current.clear();
+  };
+
+  for (unsigned char c : line) {
+    if (IsIgnoredControl(c)) continue;
+
+    if (IsWord(c)) {
+      if (cfg.lowercase) {
+        c = static_cast<unsigned char>(std::tolower(c));
+      }
+      current.push_back(static_cast<char>(c));
+    } else {
+      flush_word();
+      if (IsPunct(c)) {
+        parsed.push_back(static_cast<char>(c));
+      }
+    }
+  }
+  flush_word();
+
+  for (const auto& item : parsed) {
+    std::visit([&](const auto& value) {
+          using ValueType = std::decay_t<decltype(value)>;
+          if constexpr (std::is_same_v<ValueType, std::string>) {
+            const std::string& word_token = value;
+            words[word_token] += 1;
+          } else {
+            const char punctuation_char = value;
+            const std::string punctuation_token(1, punctuation_char);
+            punct[punctuation_token] += 1;
+          }
+        },
+        item);
+  }
+}
