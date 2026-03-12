@@ -358,9 +358,6 @@ int main() {
       stats->final_tokens = final_tokens.size();
     }
 
-
-
-
   } catch (const ConfigError& e) {
     std::cerr << e.what() << '\n';
     return 666;
@@ -374,4 +371,16 @@ int main() {
     std::cerr << "Unexpected error: " << e.what() << '\n';
     return 666;
   }
+
+  // beautiful stats output (for checking of medium results)
+  std::cout << "dataset = " << fs::absolute(cfg.dataset_path) << '\n'
+            << "dataset_read = " << (stats->dataset_read ? 1 : 0) << '\n'
+            << "token_list = " << fs::absolute(cfg.token_list_output_path) << "\n\n"
+            << "lines = " << stats->lines << '\n'
+            << "punct = " << stats->punct << '\n'
+            << "words = " << stats->words << '\n'
+            << "pieces = " << stats->pieces << '\n'
+            << "final_tokens = " << stats->final_tokens << "\n\n"
+            << "time_consumed_in_ms = " << std::fixed << std::setprecision(3) << elapsed_ms << '\n';
+  return 0;
 }
