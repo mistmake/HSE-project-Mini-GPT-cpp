@@ -1,3 +1,16 @@
+#pragma once
+
+#include <QMainWindow>
+#include <QListWidget>
+#include <QSpinBox>
+#include <QPushButton>
+#include <QPlainTextEdit>
+#include <QString>
+
+#ifdef slots
+#undef slots
+#endif
+
 #include <torch/torch.h>
 #include <iostream>
 #include <fstream>
@@ -5,28 +18,26 @@
 #include <set>
 #include <map>
 #include <cmath>
+#include "ui_mainwindow.h"
 
 namespace F = torch::nn::functional;
 
 constexpr int
-batch_size = 64, // batches are used to create multithreading, 1 batch computes 1 token at a time
-block_size = 256, // block_size shows the maximum amount of tokens that ArkadiiGPT can support in context
-vocab_size = 65, // amount of chars which are available for model to analyze and predict
-learning_amount = 50000, // number of training iterations(1000 iterations = 5-7 minutes on RTX 4070)
-embed_dim_num = 384, // number of dimensions of one single token
-head_number = 6; // number of Attention heads in MultiHeadAttention
+batch_size = 64,
+block_size = 256,
+vocab_size = 65,
+learning_amount = 50000,
+embed_dim_num = 384, // n_embd
+head_number = 6;
 constexpr float dropout = 0.2;
-// dropout is used to drop randomly some neurons, this is made in order to prevent overfitting
-torch::Device device(torch::cuda::is_available() ? torch::kCUDA : torch::kCPU); // device where to train
+torch::Device device(torch::kCPU);
 
 int version = 0;
 
-//all tokens which ArkadiiGPT can generate: it is saved to decode from number to symbol
 std::string vocab = " !$&',-.3:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-std::map<char, int> stoi; // encoder from symbol to number
+std::map<char, int> stoi;
 
-//creates a self-attention head which stores Q, K, V linear layers to support context of text
 struct HeadImpl : torch::nn::Module {
     torch::nn::Linear query = nullptr;
     torch::nn::Linear key = nullptr;
@@ -35,7 +46,6 @@ struct HeadImpl : torch::nn::Module {
     torch::nn::Dropout drop = nullptr;
 
     HeadImpl() = default;
-    // registers layers in torch dynamic tree
     HeadImpl(int head_size) {
         mask = register_buffer("mask", torch::tril(torch::ones({block_size, block_size})));
         query = register_module(
@@ -55,7 +65,7 @@ struct HeadImpl : torch::nn::Module {
             torch::nn::Dropout(dropout)
             );
     }
-    // computes attention using formula softmax((Q*K^T)/sqrt(d)) * V, based on "Attention is all you need"
+
     torch::Tensor forward(torch::Tensor& x) {
         auto T = x.size(1);
         auto K = key(x);
@@ -76,12 +86,10 @@ struct HeadImpl : torch::nn::Module {
 };
 TORCH_MODULE(Head);
 
-// implements MultiHead attention to divide attention in smaller pieces in order to support different context between tokens
 struct MultiHeadAttentionImpl : torch::nn::Module {
     torch::nn::ModuleList heads = nullptr;
     torch::nn::Linear projection = nullptr;
     torch::nn::Dropout drop = nullptr;
-    // creates n heads which divides full embedding matrix into n pieces and computes attention
     MultiHeadAttentionImpl(int heads_amount, int head_size) {
         heads = register_module(
             "heads",
@@ -100,8 +108,6 @@ struct MultiHeadAttentionImpl : torch::nn::Module {
             );
     }
     MultiHeadAttentionImpl() = default;
-    // after computting attention, uses projection linear layer in order to mix the context and
-    // returns embed_dim_number size tensor
     torch::Tensor forward(torch::Tensor x) {
         std::vector<torch::Tensor> rawres;
         for (auto& raw : *heads) {
@@ -113,8 +119,6 @@ struct MultiHeadAttentionImpl : torch::nn::Module {
 };
 TORCH_MODULE(MultiHeadAttention);
 
-//feed forward is made in order to remove linearity between layers
-//this is used to approximate every func in neural network
 struct FeedForwardImpl : torch::nn::Module {
     torch::nn::Sequential mod = nullptr;
     FeedForwardImpl() = default;
@@ -123,7 +127,7 @@ struct FeedForwardImpl : torch::nn::Module {
             "mod",
             torch::nn::Sequential(
                 torch::nn::Linear(embed_dim_num, embed_dim_num * 4),
-                torch::nn::ReLU(), // deletes linearity
+                torch::nn::ReLU(),
                 torch::nn::Linear(embed_dim_num * 4, embed_dim_num),
                 torch::nn::Dropout(dropout)
                 )
@@ -135,7 +139,6 @@ struct FeedForwardImpl : torch::nn::Module {
 };
 TORCH_MODULE(FeedForward);
 
-// transformer block is used to combine all
 struct TransformerBlockImpl : torch::nn::Module {
     MultiHeadAttention att = nullptr;
     FeedForward feed = nullptr;
@@ -164,7 +167,6 @@ struct TransformerBlockImpl : torch::nn::Module {
             );
     }
     torch::Tensor forward(torch::Tensor x) {
-        // addition of MHA and FF to x in order to add residual connections
         x = x + att(ln1(x));
         x = x + feed(ln2(x));
         return x;
@@ -172,7 +174,7 @@ struct TransformerBlockImpl : torch::nn::Module {
 };
 TORCH_MODULE(TransformerBlock);
 
-// the whole GPT!!!!
+
 struct ArkadiiGPTImpl : torch::nn::Module {
 
     torch::nn::Embedding embedding_table = nullptr;
@@ -180,23 +182,20 @@ struct ArkadiiGPTImpl : torch::nn::Module {
     torch::nn::Embedding position_embedding = nullptr;
     torch::nn::Sequential transformers = nullptr;
 
+    /// @param vocab_size -
     ArkadiiGPTImpl() {
-        //embedding table is bare context of symbols
         embedding_table = register_module(
             "embedding_table",
             torch::nn::Embedding(vocab_size, embed_dim_num)
             );
-        // main head mixes
         main_head = register_module(
             "main_head",
             torch::nn::Linear(embed_dim_num, vocab_size)
             );
-        //position embedding is thing that analyzes position of tokens to create better context
         position_embedding = register_module(
             "position_embedding",
             torch::nn::Embedding(block_size, embed_dim_num)
             );
-        // sequential list of transformers(to make bigger model)
         transformers = register_module(
             "transformers",
             torch::nn::Sequential(
@@ -210,8 +209,6 @@ struct ArkadiiGPTImpl : torch::nn::Module {
             )
             );
     }
-    //bare prediction of next token using
-    //embedding, position embedding, main head and transformer blocks
     torch::Tensor forward(torch::Tensor& idx) {
         auto idxTime = idx.size(1);
         auto tokens_embed = embedding_table(idx);
@@ -227,7 +224,7 @@ struct ArkadiiGPTImpl : torch::nn::Module {
         return logits;
     }
 
-    //computes  the next token and loss function, returns std::pair
+    ///
     std::pair<torch::Tensor, torch::Tensor> forward(const torch::Tensor& idx, torch::Tensor& targets) {
         auto idxTime = idx.size(1);
         auto tokens_embed = embedding_table(idx);
@@ -248,8 +245,8 @@ struct ArkadiiGPTImpl : torch::nn::Module {
         auto loss = F::cross_entropy(logits, targets);
         return {logits, loss};
     }
-    // generates max_new_tokens tokens and concantenates with previous context matrix
-    torch::Tensor generate(torch::Tensor idx, int max_new_tokens) {
+
+    torch::Tensor generate(torch::Tensor& idx, int max_new_tokens) {
         for (int i = 0; i < max_new_tokens; ++i) {
             auto idx_sliced = idx.index({
                 torch::indexing::Slice(),
@@ -268,76 +265,163 @@ struct ArkadiiGPTImpl : torch::nn::Module {
 
 TORCH_MODULE(ArkadiiGPT);
 
-//gets batch of dataset and returns coded tensor
-//returned tensor size is (batch_size, block_size)
-std::pair<torch::Tensor, torch::Tensor> get_batch( torch::Tensor data) {
+class MyWindow : public QMainWindow
+{
+public:
+    explicit MyWindow(QWidget* parent = nullptr)
+        : QMainWindow(parent)
+    {
+        std::cout << "constructing";
+        ui.setupUi(this);
 
-    auto x = torch::zeros({batch_size, block_size}, torch::TensorOptions(torch::kInt64));
-    auto y = torch::zeros({batch_size, block_size}, torch::TensorOptions(torch::kInt64));
-    for (int i = 0; i < batch_size; ++i) {
-        int start = torch::randint(0, data.numel() - block_size - 1, 1).item<int>();
-        for (int j = 0; j < block_size; ++j) {
-            x[i][j] = data[start + j];
-            y[i][j] = data[start + j + 1];
-        }
+        setupModels();
+        setupSpinBox();
+        setupTextEdit();
+        model1 = ArkadiiGPT();
+        connect(ui.pushButton, &QPushButton::clicked, this, [this]()
+        {
+            onGenerateClicked();
+        });
+        std::cout << "loading";
+        torch::load(model1, "../nanoArkadiiGPT/model.pt", device);
+        model1->eval();
+        std::cout << "loaded";
     }
-    return {x, y};
-}
 
-//couts int amount tokens
-void generate_and_cout(ArkadiiGPT& model, int amount) {
-    auto raw = model->generate(torch::zeros(
-        {1, 1}, torch::TensorOptions(torch::kLong).device(device)),
-        amount
+    ~MyWindow()
+    {
+    }
+
+private:
+    Ui::MainWindow ui;
+    //Bigram model0;
+    ArkadiiGPT model1 = nullptr;
+
+private:
+    void setupModels()
+    {
+
+        ui.listWidget->setCurrentRow(1);
+    }
+
+    void setupSpinBox()
+    {
+        ui.spinBox->setMinimum(1);
+        ui.spinBox->setMaximum(1000);
+        ui.spinBox->setValue(50);
+    }
+
+    void setupTextEdit()
+    {
+        ui.plainTextEdit->setPlaceholderText(
+            "Введите текст. Если поле пустое, модель будет генерировать с нуля."
         );
-    raw =raw.to(torch::kCPU);
-    for (int i = 0; i < raw.numel(); ++i) {
-        std::cout << vocab[raw[0][i].item<int>()];
     }
-    std::cout << '\n';
-}
-int main() {
-    for (int i = 0; i < vocab.size(); ++i) {
-        stoi[vocab[i]] = i; // making encoder
-    }
-    std::ifstream data("../nanoArkadiiGPT/data/tinystories_sample.txt"); //dataset
-    if (!data) {
-        std::cout << "Error opening file\n";
-        return 1;
-    }
-    std::vector<int64_t> encoded;
-    char c;
-    while (data.get(c)) {
-        if (c == '\n') {
-            continue;
+
+    void onGenerateClicked()
+    {
+        QListWidgetItem* currentItem = ui.listWidget->currentItem();
+        if (!currentItem)
+        {
+            return;
         }
-        encoded.push_back(stoi[c]); // encoding full dataset
-    }
 
-    //transforming from vector to torch::Tensor
-    torch::Tensor fulldata = torch::tensor(encoded, torch::TensorOptions().dtype(torch::kLong));
+        const QString fullText = ui.plainTextEdit->toPlainText();
+        const QString context = getLastTokens(fullText, 256);
+        const int wordsToGenerate = ui.spinBox->value();
+        const int selectedRow = ui.listWidget->currentRow();
 
-    //creating model, transforming to GPU(if possible) and couting symbols before training
-    ArkadiiGPT model;
-    model->to(device);
-    generate_and_cout(model, 100);
-    //creating AdamW optimizatior
-    auto optim = torch::optim::AdamW(model->parameters(), torch::optim::AdamWOptions(3e-4));
-    //training loop: predicting, computing loss function(cross-entropy), computing gradient
-    // and update weights and bias
-    for (int i = 0; i < learning_amount; ++i) {
-        auto [xb, yb] = get_batch(fulldata);
-        xb = xb.to(device);
-        yb = yb.to(device);
-        auto [logits, loss] = model->forward(xb, yb);
 
-        optim.zero_grad();
-        loss.backward();
-        optim.step();
-        if (i % 1000 == 0) { //every 1000 iteration saving the model
-            std::cout << loss.item() << ("  Model saved, number: " + std::to_string(version)) <<"\n";
-            torch::save(model, std::string("versions/version") + std::to_string(version++) + std::string(".pt"));
+        QString generatedText;
+
+        if (selectedRow == 0)
+        {
+
+            //generatedText = runBigramGeneration(context, wordsToGenerate);
         }
+        else if (selectedRow == 1)
+        {
+            generatedText = runArkadiiGeneration(context, wordsToGenerate);
+        }
+
+        QString finalText = fullText;
+        finalText += generatedText;
+        ui.plainTextEdit->setPlainText(finalText);
     }
-    generate_and_cout(model, 100); //model test
-}
+
+
+    QString getLastTokens(const QString& text, int maxTokens) const
+    {
+        if (text.size() <= maxTokens)
+            return text;
+
+        return text.right(maxTokens);
+    }
+
+    // ------------------------------------------------------------
+    // НИЖЕ ТОЛЬКО КАРКАС ПОД ТВОЙ КОД
+    // ЗДЕСЬ НЕ ЗАГЛУШКА ДЛЯ UI, А ПРОСТО МЕСТО,
+    // КУДА ТЫ ВСТАВИШЬ СВОЙ TORCH-КОД
+    // ------------------------------------------------------------
+
+    QString runBigramGeneration(const QString& context, int wordsToGenerate)
+    {
+        // ========================================================
+        // ПРИМЕР ЛОГИКИ:
+        //
+        // 1. Перевести QString -> std::string
+        // 2. Закодировать в char-level токены
+        // 3. Собрать тензор контекста
+        //    если context пустой -> передать пустой тензор / стартовый контекст
+        // 4. Вызвать model0
+        // 5. Декодировать результат обратно в QString
+        // ========================================================
+
+        std::string input = context.toStdString();
+
+        // ТУТ БУДЕТ ТВОЙ КОД
+        // Например:
+        //
+        // auto encoded = encode(input);
+        // auto result = model0->generate(...);
+        // std::string output = decode(result);
+        //
+        // return QString::fromStdString(output);
+
+        return QString();
+    }
+
+    QString runArkadiiGeneration(const QString& context, int wordsToGenerate)
+    {
+        std::string input = context.toStdString();
+        std::vector<int> coded;
+        // ТУТ БУДЕТ ТВОЙ КОД
+        // Например:
+        //
+        // auto encoded = encode(input);
+        // auto result = model1->generate(...);
+        // std::string output = decode(result);
+        //
+        // return QString::fromStdString(output);
+
+        for (char c : input) {
+            coded.push_back(stoi[c]);
+        }
+        if (coded.empty()) {
+            coded.push_back(0);
+        }
+        torch::Tensor batch = torch::tensor(coded).view({1, -1});
+        std::string res;
+        for (int i = 0; i < wordsToGenerate; ++i) {
+            while (true) {
+                model1->generate(batch, 1);
+                res.push_back(vocab[batch[0][-1].item<int>()]);
+                if (batch[0][-1].item<int64_t>() == 0) {
+                    break;
+                }
+            }
+        }
+
+        return QString::fromStdString(res);
+    }
+};
