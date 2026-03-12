@@ -180,3 +180,45 @@ struct ScopedTimer {
     out_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
   }
 };
+
+
+// convert freq map to vector sorted by freq (decreasing)
+std::vector<TokenFreq> SortByFreq(const FreqMap& map, std::uint64_t min_freq) {
+  std::vector<TokenFreq> out;
+  out.reserve(map.size());
+
+  for (auto &[token, freq] : map) {
+    if (freq >= min_freq) out.push_back({token, freq});
+  }
+
+  std::sort(out.begin(), out.end(), [](const TokenFreq& a, const TokenFreq& b) {
+    if (a.freq != b.freq) {
+      return a.freq > b.freq;
+    } else {
+      return a.token < b.token;
+    }
+  });
+
+  return out;
+}
+
+
+// build freq subtokens in format (#...) (we need it because are going to develop the model into smth like T9)
+std::vector<TokenFreq> BuildPieces(const std::vector<TokenFreq>& words, const Config& cfg) {
+  FreqMap pieces;
+  pieces.reserve(words.size() * 5);
+
+  for (const auto & w : words) {
+    const std::size_t len = w.token.size();
+    if (len < cfg.min_piece_len) continue;
+
+    for (std::size_t n = cfg.min_piece_len; n <= cfg.max_piece_len && n <= len; ++n) {
+      pieces[w.token.substr(0, n)] += w.freq;
+      for (std::size_t i = 1; i + n <= len; ++i) {
+        pieces["#" + w.token.substr(i, n)] += w.freq;
+      }
+    }
+  }
+
+  return SortByFreq(pieces, cfg.min_piece_freq);
+}
