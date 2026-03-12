@@ -68,3 +68,12 @@ struct Config {
     // ignore very long words to because we do not need strange tokens
     std::size_t max_word_len = 30;
 };
+
+// processing stats printed at the end
+struct Stats {
+    bool dataset_read = false;
+    std::size_t lines = 0;
+    std::size_t punct = 0;
+    std::size_t words = 0;
+    std::size_t final_tokens = 0;
+};
