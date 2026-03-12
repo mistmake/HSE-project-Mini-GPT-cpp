@@ -167,3 +167,16 @@ void ProcessLine(const std::string& line, const Config& cfg, const std::vector<s
         item);
   }
 }
+
+// RAII timer
+struct ScopedTimer {
+  long long& out_ms;
+  std::chrono::steady_clock::time_point start;
+
+  explicit ScopedTimer(long long& out_ms) : out_ms(out_ms), start(std::chrono::steady_clock::now()) {}
+
+  ~ScopedTimer() {
+    const auto end = std::chrono::steady_clock::now();
+    out_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+  }
+};
