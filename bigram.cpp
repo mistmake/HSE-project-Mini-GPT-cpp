@@ -97,12 +97,10 @@ int main() {
     std::optional<std::string> dataset = loader.loadText("bigram.txt");
 
     if (!dataset.has_value()) {
-        std::cerr << "Dataset is empty or could not be loaded. Exiting.\n";
+        std::cerr << "Dataset is empty or could not be loaded.\n";
         return 1;
     }
-
     auto my_model = std::make_unique<BigramModel>();
-
     my_model->train(dataset.value());
 
     std::vector<std::unique_ptr<LanguageModel>> models;
