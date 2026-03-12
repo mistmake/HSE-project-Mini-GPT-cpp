@@ -1,12 +1,15 @@
 #include <QApplication>
 #include "mainwindow.h"
+#include "../config.h"
+
+Config config;
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    for (int i = 0; i < vocab.size(); ++i) {
-        stoi[vocab[i]] = i;
+    for (int i = 0; i < config.vocab.size(); ++i) {
+        config.stoi[config.vocab[i]] = i;
     }
 
     MyWindow window;
