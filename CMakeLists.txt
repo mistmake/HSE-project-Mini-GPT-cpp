@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(BUILD_APP "Build the Qt/Torch application" ON)
+option(BUILD_TRAINER "Build the ArkadiiGPT training executable" ON)
 option(BUILD_BIGRAM "Build the bigram module" ON)
 option(BUILD_TOKENIZER "Build the tokenizer module" ON)
 option(ENABLE_TESTS "Build GoogleTest tests" ON)
@@ -24,7 +25,7 @@ function(use_project_root_as_working_directory target_name)
     )
 endfunction()
 
-if(BUILD_APP OR ENABLE_TESTS)
+if(BUILD_APP OR BUILD_TRAINER OR ENABLE_TESTS)
     find_package(Torch REQUIRED)
 
     add_library(arkadii_core
@@ -50,6 +51,16 @@ if(BUILD_APP OR ENABLE_TESTS)
 
     target_compile_options(arkadii_core PUBLIC ${TORCH_CXX_FLAGS})
     target_link_libraries(arkadii_core PUBLIC ${TORCH_LIBRARIES})
+endif()
+
+if(BUILD_TRAINER)
+    add_executable(arkadii_train
+            nanoArkadiiGPT/main.cpp
+    )
+
+    configure_cpp_target(arkadii_train)
+    target_link_libraries(arkadii_train PRIVATE arkadii_core)
+    use_project_root_as_working_directory(arkadii_train)
 endif()
 
 if(BUILD_BIGRAM)
