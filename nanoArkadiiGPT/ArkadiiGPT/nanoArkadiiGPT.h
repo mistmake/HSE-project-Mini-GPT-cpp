@@ -9,8 +9,6 @@
 
 namespace F = torch::nn::functional;
 
-std::map<char, int> stoi; // encoder from symbol to number
-
 
 // the whole GPT!!!!
 struct ArkadiiGPTImpl : torch::nn::Module {

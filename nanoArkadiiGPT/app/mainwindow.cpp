@@ -1,164 +1,178 @@
-#pragma once
+#include "mainwindow.h"
+#include "../config.h"
 
-#include <QMainWindow>
-#include <QListWidget>
-#include <QSpinBox>
-#include <QPushButton>
-#include <QPlainTextEdit>
-#include <QString>
+#include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
+#include <QStatusBar>
 
-#ifdef slots
-#undef slots
-#endif
-
-#include <torch/torch.h>
+#include <c10/util/Exception.h>
 #include <iostream>
-#include <fstream>
+#include <vector>
 #include <string>
-#include <set>
-#include <map>
-#include <cmath>
-#include "ui_mainwindow.h"
 
-namespace F = torch::nn::functional;
-
-constexpr int
-batch_size = 64,
-block_size = 256,
-vocab_size = 65,
-learning_amount = 50000,
-embed_dim_num = 384, // n_embd
-head_number = 6;
-constexpr float dropout = 0.2;
-torch::Device device(torch::kCPU);
-
-int version = 0;
-
-std::string vocab = " !$&',-.3:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-
-std::map<char, int> stoi;
-
-
-class MyWindow : public QMainWindow
+MyWindow::MyWindow(QWidget* parent)
+    : QMainWindow(parent)
 {
-public:
-    explicit MyWindow(QWidget* parent = nullptr)
-        : QMainWindow(parent)
-    {
-        std::cout << "constructing";
-        ui.setupUi(this);
+    std::cout << "constructing" << std::endl;
 
-        setupModels();
-        setupSpinBox();
-        setupTextEdit();
-        model1 = ArkadiiGPT();
-        connect(ui.pushButton, &QPushButton::clicked, this, [this]()
+    ui.setupUi(this);
+
+    setupModels();
+    setupSpinBox();
+    setupTextEdit();
+
+    model1 = ArkadiiGPT();
+
+    connect(ui.pushButton, &QPushButton::clicked, this, [this]()
+    {
+        onGenerateClicked();
+    });
+
+    modelLoaded = tryLoadModel();
+    ui.pushButton->setEnabled(modelLoaded);
+}
+
+MyWindow::~MyWindow()
+{
+}
+
+void MyWindow::setupModels()
+{
+    ui.listWidget->setCurrentRow(1);
+}
+
+void MyWindow::setupSpinBox()
+{
+    ui.spinBox->setMinimum(1);
+    ui.spinBox->setMaximum(1000);
+    ui.spinBox->setValue(50);
+}
+
+void MyWindow::setupTextEdit()
+{
+    ui.plainTextEdit->setPlaceholderText("Enter prompt here...");
+}
+
+QStringList MyWindow::modelPathCandidates() const
+{
+    const QString appDir = QCoreApplication::applicationDirPath();
+    const QString currentDir = QDir::currentPath();
+
+    return {
+        QDir(appDir).filePath("../nanoArkadiiGPT/model.pt"),
+        QDir(appDir).filePath("nanoArkadiiGPT/model.pt"),
+        QDir(currentDir).filePath("../nanoArkadiiGPT/model.pt"),
+        QDir(currentDir).filePath("nanoArkadiiGPT/model.pt")
+    };
+}
+
+bool MyWindow::tryLoadModel()
+{
+    for (const QString& candidate : modelPathCandidates())
+    {
+        QFileInfo info(candidate);
+        if (!info.exists() || !info.isFile())
         {
-            onGenerateClicked();
-        });
-        std::cout << "loading";
-        torch::load(model1, "../nanoArkadiiGPT/model.pt", device);
-        model1->eval();
-        std::cout << "loaded";
-    }
+            continue;
+        }
 
-    ~MyWindow()
-    {
-    }
-
-private:
-    Ui::MainWindow ui;
-    //Bigram model0;
-    ArkadiiGPT model1 = nullptr;
-
-private:
-    void setupModels()
-    {
-
-        ui.listWidget->setCurrentRow(1);
-    }
-
-    void setupSpinBox()
-    {
-        ui.spinBox->setMinimum(1);
-        ui.spinBox->setMaximum(1000);
-        ui.spinBox->setValue(50);
-    }
-
-    void setupTextEdit()
-    {
-    }
-
-    void onGenerateClicked()
-    {
-        QListWidgetItem* currentItem = ui.listWidget->currentItem();
-        if (!currentItem)
+        try
         {
-            return;
+            std::cout << "loading model from " << info.absoluteFilePath().toStdString() << std::endl;
+            torch::load(model1, info.absoluteFilePath().toStdString(), config.device);
+            model1->eval();
+            statusBar()->showMessage(QString("Model loaded: %1").arg(info.absoluteFilePath()));
+            std::cout << "loaded" << std::endl;
+            return true;
         }
-
-        const QString fullText = ui.plainTextEdit->toPlainText();
-        const QString context = getLastTokens(fullText, 256);
-        const int wordsToGenerate = ui.spinBox->value();
-        const int selectedRow = ui.listWidget->currentRow();
-
-
-        QString generatedText;
-
-        if (selectedRow == 0)
+        catch (const c10::Error& error)
         {
-
-            //generatedText = runBigramGeneration(context, wordsToGenerate);
+            statusBar()->showMessage(QString("Failed to load model: %1").arg(error.what()));
+            return false;
         }
-        else if (selectedRow == 1)
-        {
-            generatedText = runArkadiiGeneration(context, wordsToGenerate);
-        }
-
-        QString finalText = fullText;
-        finalText += generatedText;
-        ui.plainTextEdit->setPlainText(finalText);
     }
 
+    statusBar()->showMessage("model.pt not found. App started without generation model.");
+    return false;
+}
 
-    QString getLastTokens(const QString& text, int maxTokens) const
+void MyWindow::onGenerateClicked()
+{
+    if (!modelLoaded)
     {
-        if (text.size() <= maxTokens)
-            return text;
-
-        return text.right(maxTokens);
+        statusBar()->showMessage("Generation is unavailable until model.pt is added.");
+        return;
     }
 
-    QString runBigramGeneration(const QString& context, int wordsToGenerate)
+    QListWidgetItem* currentItem = ui.listWidget->currentItem();
+    if (!currentItem)
     {
-        std::string input = context.toStdString();
-
-        return QString();
+        return;
     }
 
-    QString runArkadiiGeneration(const QString& context, int wordsToGenerate)
-    {
-        std::string input = context.toStdString();
-        std::vector<int> coded;
+    const QString fullText = ui.plainTextEdit->toPlainText();
+    const QString context = getLastTokens(fullText, 256);
+    const int wordsToGenerate = ui.spinBox->value();
+    const int selectedRow = ui.listWidget->currentRow();
 
-        for (char c : input) {
-            coded.push_back(stoi[c]);
-        }
-        if (coded.empty()) {
-            coded.push_back(0);
-        }
-        torch::Tensor batch = torch::tensor(coded).view({1, -1});
-        std::string res;
-        for (int i = 0; i < wordsToGenerate; ++i) {
-            while (true) {
-                model1->generate(batch, 1);
-                res.push_back(vocab[batch[0][-1].item<int>()]);
-                if (batch[0][-1].item<int64_t>() == 0) {
-                    break;
-                }
+    QString generatedText;
+
+    if (selectedRow == 0)
+    {
+        // generatedText = runBigramGeneration(context, wordsToGenerate);
+    }
+    else if (selectedRow == 1)
+    {
+        generatedText = runArkadiiGeneration(context, wordsToGenerate);
+    }
+
+    QString finalText = fullText;
+    finalText += generatedText;
+    ui.plainTextEdit->setPlainText(finalText);
+}
+
+QString MyWindow::getLastTokens(const QString& text, int maxTokens) const
+{
+    if (text.size() <= maxTokens)
+        return text;
+
+    return text.right(maxTokens);
+}
+
+QString MyWindow::runBigramGeneration(const QString& context, int wordsToGenerate)
+{
+    std::string input = context.toStdString();
+    return QString();
+}
+
+QString MyWindow::runArkadiiGeneration(const QString& context, int wordsToGenerate)
+{
+    std::string input = context.toStdString();
+    std::vector<int> coded;
+
+    for (char c : input) {
+        coded.push_back(config.stoi[c]);
+    }
+
+    if (coded.empty()) {
+        coded.push_back(0);
+    }
+
+    torch::Tensor batch = torch::tensor(coded).view({1, -1});
+    std::string res;
+
+    for (int i = 0; i < wordsToGenerate; ++i) {
+        size_t n = 0;
+        while (true ) {
+            batch = model1->generate(batch, 1);
+            res.push_back(config.vocab[batch[0][-1].item<int>()]);
+            if (batch[0][-1].item<int64_t>() == 0 || n >= config.max_cpw) {
+                break;
             }
+            n++;
         }
-
-        return QString::fromStdString(res);
     }
-};
+
+    return QString::fromStdString(res);
+}

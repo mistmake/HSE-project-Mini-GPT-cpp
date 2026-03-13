@@ -10,7 +10,7 @@
 
 int main() {
     for (int i = 0; i < config.vocab.size(); ++i) {
-        stoi[config.vocab[i]] = i; // making encoder
+        config.stoi[config.vocab[i]] = i; // making encoder
     }
     std::ifstream data("../nanoArkadiiGPT/data/tinystories_sample.txt"); //dataset
     if (!data) {
@@ -23,7 +23,7 @@ int main() {
         if (c == '\n') {
             continue;
         }
-        encoded.push_back(stoi[c]); // encoding full dataset
+        encoded.push_back(config.stoi[c]); // encoding full dataset
     }
 
     //transforming from vector to torch::Tensor

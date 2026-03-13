@@ -8,6 +8,7 @@ struct Config {
         vocab_size = 65, // amount of chars which are available for model to analyze and predict
         learning_amount = 50000, // number of training iterations(1000 iterations = 5-7 minutes on RTX 4070)
         embed_dim_num = 384, // number of dimensions of one single token
+        max_cpw = 20, // number of dimensions of one single token
         head_number = 6; // number of Attention heads in MultiHeadAttention
     const float dropout = 0.2;
     // dropout is used to drop randomly some neurons, this is made in order to prevent overfitting
@@ -17,7 +18,8 @@ struct Config {
 
     //all tokens which ArkadiiGPT can generate: it is saved to decode from number to symbol
     std::string vocab = " !$&',-.3:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+    std::map<char, int> stoi; // encoder from symbol to number
 };
 
-Config config;
-
+extern Config config;

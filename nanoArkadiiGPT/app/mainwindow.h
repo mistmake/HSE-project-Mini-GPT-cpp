@@ -6,6 +6,7 @@
 #include <QPushButton>
 #include <QPlainTextEdit>
 #include <QString>
+#include <QStringList>
 
 #ifdef slots
 #undef slots
@@ -13,8 +14,8 @@
 
 #include <torch/torch.h>
 #include <fstream>
-#include "mainwindow.ui"
 #include "../ArkadiiGPT/nanoArkadiiGPT.h"
+#include "ui_mainwindow.h"
 
 namespace F = torch::nn::functional;
 
@@ -29,9 +30,12 @@ private:
     Ui::MainWindow ui;
     //Bigram model0;
     ArkadiiGPT model1 = nullptr;
+    bool modelLoaded = false;
     void setupModels();
     void setupSpinBox();
     void setupTextEdit();
+    QStringList modelPathCandidates() const;
+    bool tryLoadModel();
     void onGenerateClicked();
     QString getLastTokens(const QString& text, int maxTokens) const;
     QString runBigramGeneration(const QString& context, int wordsToGenerate);
