@@ -29,6 +29,7 @@ add_library(arkadii_core
         nanoArkadiiGPT/ArkadiiGPT/nanoArkadiiGPT.h
         nanoArkadiiGPT/config.cpp
 
+
 )
 
 add_library(milana_bigram
@@ -43,8 +44,12 @@ add_library(milana_bigram
 
 add_library(simeon_dataset
         dataset/tokenizer.cpp
-        dataset/config.cpp
-        dataset/config.h
+        dataset/TokenizerConfig.cpp
+        dataset/TokenizerConfig.h
+        dataset/processing/funcs.cpp
+        dataset/utils/utils.cpp
+        dataset/utils/utils.h
+        dataset/processing/funcs.h
 )
 
 target_include_directories(arkadii_core

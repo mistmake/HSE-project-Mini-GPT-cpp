@@ -6,7 +6,7 @@
 namespace fs = std::filesystem;
 
 // main project settings (the things we should change in order of change of dataset)
-struct Config {
+struct TokenizerConfig {
     // dataset input file path
     fs::path dataset_path = "/Users/karpukhin.simeon/Desktop/untitled2/tinystories_full.txt";
 
@@ -30,4 +30,4 @@ struct Config {
     std::size_t max_word_len = 30;
 };
 
-extern Config tokcfg; // configuration for tokenizer
+extern TokenizerConfig tokcfg; // configuration for tokenizer
