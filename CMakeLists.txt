@@ -41,6 +41,12 @@ add_library(milana_bigram
         bigram/bigrammodel/bigrammodel.h
 )
 
+add_library(simeon_dataset
+        dataset/tokenizer.cpp
+        dataset/config.cpp
+        dataset/config.h
+)
+
 target_include_directories(arkadii_core
         PUBLIC
         ${CMAKE_SOURCE_DIR}/nanoArkadiiGPT
