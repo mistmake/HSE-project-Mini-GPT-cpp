@@ -235,37 +235,6 @@ cmake -S . -B build \
 - `tokenizer_tests`: unit tests for tokenizer logic
 - `bigram_tests`: unit tests for bigram and dataset loading
 
-## Running
-
-Run the tokenizer:
-
-```bash
-./build/tokenizer
-```
-
-Run ArkadiiGPT training:
-
-```bash
-./build/arkadii_train
-```
-
-Run the bigram baseline:
-
-```bash
-./build/bigram
-```
-
-Run the Qt app:
-
-```bash
-./build/app
-```
-
-Run tests:
-
-```bash
-ctest --test-dir build --output-on-failure
-```
 
 ## Runtime data flow
 
@@ -273,4 +242,11 @@ ctest --test-dir build --output-on-failure
 - `bigram` reads `data/dataset.txt` through `DataLoader` and generates text from the trained bigram statistics
 - `arkadii_train` reads `data/dataset.txt`, saves checkpoints into `data/versions/`, and writes the final model to `data/model.pt`
 - `app` looks for `data/model.pt` and loads it into `ArkadiiGPT` for inference
+
+## ArkadiiGPT description:
+- **10,788,929** parameters overall
+- Embedding dimensions: **384**
+- Amount of transformer blocks: **6**
+- Amount of heads in multi-attention: **6**
+- Training time: **~5 hours**
 
