@@ -17,7 +17,7 @@
 int main() {
     DataLoader loader;
 
-    std::optional<std::string> dataset = loader.loadText("bigram/bigram.txt");
+    std::optional<std::string> dataset = loader.loadText("data/dataset.txt");
 
     if (!dataset.has_value()) {
         std::cerr << "Dataset is empty or could not be loaded.\n";

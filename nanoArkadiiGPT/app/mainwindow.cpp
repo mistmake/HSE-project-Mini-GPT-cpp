@@ -159,7 +159,7 @@ QString MyWindow::runArkadiiGeneration(const QString& context, int wordsToGenera
         coded.push_back(0);
     }
 
-    torch::Tensor batch = torch::tensor(coded)).view({1, -1});
+    torch::Tensor batch = torch::tensor(coded).view({1, -1});
     std::string res;
 
     for (int i = 0; i < wordsToGenerate; ++i) {

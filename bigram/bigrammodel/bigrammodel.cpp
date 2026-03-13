@@ -8,6 +8,7 @@
 #include "bigrammodel.h"
 
 void BigramModel::train(const std::string& text) {
+    word_counts.clear();
     std::istringstream stream(text);
     std::string prev_word, curr_word;
 

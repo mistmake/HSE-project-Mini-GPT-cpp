@@ -5,7 +5,7 @@ struct Config {
     const int
         batch_size = 64, // batches are used to create multithreading, 1 batch computes 1 token at a time
         block_size = 256, // block_size shows the maximum amount of tokens that ArkadiiGPT can support in context
-        vocab_size = 65, // amount of chars which are available for model to analyze and predict
+        vocab_size = 64, // amount of chars which are available for model to analyze and predict
         learning_amount = 50000, // number of training iterations(1000 iterations = 5-7 minutes on RTX 4070)
         embed_dim_num = 384, // number of dimensions of one single token
         max_cpw = 20, // maximum number of chars in generated word

@@ -68,7 +68,7 @@ int main() {
 
       const std::string& dataset = *dataset_opt;
       std::size_t start = 0;
-      while (start <= dataset.size()) {
+      while (start < dataset.size()) {
         const std::size_t end = dataset.find('\n', start);
         if (end == std::string::npos) {
           ++stats->lines;
