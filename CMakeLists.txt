@@ -42,14 +42,14 @@ add_library(milana_bigram
         bigram/bigrammodel/bigrammodel.h
 )
 
-add_library(simeon_dataset
-        dataset/tokenizer.cpp
-        dataset/TokenizerConfig.cpp
-        dataset/TokenizerConfig.h
-        dataset/processing/funcs.cpp
-        dataset/utils/utils.cpp
-        dataset/utils/utils.h
-        dataset/processing/funcs.h
+add_library(simeon_tokenizer
+        tokenizer/tokenizer.cpp
+        tokenizer/config/TokenizerConfig.cpp
+        tokenizer/config/TokenizerConfig.h
+        tokenizer/processing/funcs.cpp
+        tokenizer/utils/utils.cpp
+        tokenizer/utils/utils.h
+        tokenizer/processing/funcs.h
 )
 
 target_include_directories(arkadii_core
@@ -67,8 +67,9 @@ add_executable(main
         nanoArkadiiGPT/app/mainwindow.h
         nanoArkadiiGPT/app/mainwindow.ui
 )
-add_executable(bigram
-bigram/bigram.cpp)
+add_executable(bigram bigram/bigram.cpp)
+
+add_executable(tokenizer tokenizer/tokenizer.cpp)
 
 set_target_properties(main PROPERTIES
         AUTOMOC ON
@@ -79,6 +80,7 @@ set_target_properties(main PROPERTIES
 
 target_link_libraries(main PRIVATE arkadii_core Qt6::Widgets)
 target_link_libraries(bigram PRIVATE milana_bigram)
+target_link_libraries(tokenizer PRIVATE simeon_tokenizer)
 
 if(ENABLE_TESTS)
     include(FetchContent)

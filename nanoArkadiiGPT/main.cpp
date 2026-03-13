@@ -12,7 +12,7 @@ int main() {
     for (int i = 0; i < config.vocab.size(); ++i) {
         config.stoi[config.vocab[i]] = i; // making encoder
     }
-    std::ifstream data("../nanoArkadiiGPT/data/tinystories_sample.txt"); //dataset
+    std::ifstream data("dataset.txt"); //dataset
     if (!data) {
         std::cout << "Error opening file\n";
         return 1;

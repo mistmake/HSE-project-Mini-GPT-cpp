@@ -60,10 +60,10 @@ QStringList MyWindow::modelPathCandidates() const
     const QString currentDir = QDir::currentPath();
 
     return {
-        QDir(appDir).filePath("../nanoArkadiiGPT/model.pt"),
-        QDir(appDir).filePath("nanoArkadiiGPT/model.pt"),
-        QDir(currentDir).filePath("../nanoArkadiiGPT/model.pt"),
-        QDir(currentDir).filePath("nanoArkadiiGPT/model.pt")
+        QDir(appDir).filePath("../data/model.pt"),
+        QDir(appDir).filePath("data/model.pt"),
+        QDir(currentDir).filePath("../data/model.pt"),
+        QDir(currentDir).filePath("data/model.pt")
     };
 }
 
