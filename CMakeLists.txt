@@ -28,6 +28,17 @@ add_library(arkadii_core
         nanoArkadiiGPT/ArkadiiGPT/nanoArkadiiGPT.cpp
         nanoArkadiiGPT/ArkadiiGPT/nanoArkadiiGPT.h
         nanoArkadiiGPT/config.cpp
+
+)
+
+add_library(milana_bigram
+        bigram/bigram.cpp
+        bigram/bigrammodel/bigrammodel.cpp
+        bigram/languagemodel/languagemodel.cpp
+        bigram/dataloader/dataloader.cpp
+        bigram/dataloader/dataloader.h
+        bigram/languagemodel/languagemodel.h
+        bigram/bigrammodel/bigrammodel.h
 )
 
 target_include_directories(arkadii_core
@@ -45,6 +56,8 @@ add_executable(main
         nanoArkadiiGPT/app/mainwindow.h
         nanoArkadiiGPT/app/mainwindow.ui
 )
+add_executable(bigram
+bigram/bigram.cpp)
 
 set_target_properties(main PROPERTIES
         AUTOMOC ON
@@ -54,6 +67,7 @@ set_target_properties(main PROPERTIES
 )
 
 target_link_libraries(main PRIVATE arkadii_core Qt6::Widgets)
+target_link_libraries(bigram PRIVATE milana_bigram)
 
 if(ENABLE_TESTS)
     include(FetchContent)

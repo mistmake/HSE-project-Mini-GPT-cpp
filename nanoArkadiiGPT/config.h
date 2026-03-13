@@ -8,7 +8,7 @@ struct Config {
         vocab_size = 65, // amount of chars which are available for model to analyze and predict
         learning_amount = 50000, // number of training iterations(1000 iterations = 5-7 minutes on RTX 4070)
         embed_dim_num = 384, // number of dimensions of one single token
-        max_cpw = 20, // number of dimensions of one single token
+        max_cpw = 20, // maximum number of chars in generated word
         head_number = 6; // number of Attention heads in MultiHeadAttention
     const float dropout = 0.2;
     // dropout is used to drop randomly some neurons, this is made in order to prevent overfitting
