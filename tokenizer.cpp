@@ -6,7 +6,6 @@
 #include <iostream>
 #include <memory>
 #include <optional>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -20,10 +19,6 @@ namespace fs = std::filesystem;
 
 // token -> number of appearances in dataset <{string, freq}>
 using FreqMap = std::unordered_map<std::string, std::uint64_t>;
-// token -> int id (encode)
-using TokenToId = std::unordered_map<std::string, std::size_t>;
-// integer id -> token (decode)
-using IdToToken = std::vector<std::string>;
 
 // token and frequency pair used in sorted outputs (struct just for convenience)
 struct TokenFreq {
@@ -80,8 +75,9 @@ struct Stats {
 
 };
 
-constexpr std::array<const char*, 6> kSpecialTokens = {"<pad>", "<unk>", "<bos>", "<eos>", "<tab>", "<nl>"};
+constexpr std::array kSpecialTokens = {"<pad>", "<unk>", "<bos>", "<eos>", "<tab>", "<nl>"};
 
+//controll of not adding invisible simbols into our list of tokens
 constexpr bool IsIgnoredControl(unsigned char c) {
   return c < 32 && c != '\t';
 }
@@ -105,16 +101,15 @@ struct MaxWordLenFilter : WordFilter {
 
 // read the text file and call on_line for each its line
 std::optional<std::string> ReadDataset(const fs::path& file) {
-  std::ifstream in(file, std::ios::binary);
+  std::ifstream in(file, std::ios::binary); // binary - for working with any type of symbols in the same way (done for windows as we tought the system on it as well)
   if (!in) return std::nullopt;
 
-  std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  std::string text((std::istreambuf_iterator(in)), std::istreambuf_iterator<char>());
   if (text.empty()) return std::nullopt;
-
   std::size_t start = 0;
   while (start <= text.size()) {
     const std::size_t end = text.find('\n', start);
-    if (end == std::string::npos) break;
+    if (end == std::string::npos) break; // npos - smth like symbol not found
     start = end + 1;
   }
   return text;
@@ -279,8 +274,10 @@ bool WriteTokenList(const fs::path& output, const std::vector<TokenFreq>& tokens
 
   std::ofstream out(output);
   if (!out) return false;
-  for (const auto& t : tokens) out << t.token << '\n';
-  return static_cast<bool>(out);
+  for (const auto& t : tokens) {
+    out << t.token << '\n';
+    return static_cast<bool>(out);
+  }
 }
 
 
@@ -303,17 +300,15 @@ int main() {
     if (!fs::is_regular_file(cfg.dataset_path)) {
       throw ConfigError("dataset file is not found :(  " + fs::absolute(cfg.dataset_path).string());
     }
-    //second realization idea was through std::cerr
-
 
 
     FreqMap words;
     FreqMap punct;
     words.reserve(500000);
     punct.reserve(256);
-    // unique_ptr and polymorphism here (as it was said to be used in the project)
+    // unique_ptr and polymorphism here
     std::vector<std::unique_ptr<WordFilter> > word_filters;
-    word_filters.push_back(std::make_unique<MaxWordLenFilter>(cfg.max_word_len));
+    // word_filters.push_back(std::make_unique<MaxWordLenFilter>(cfg.max_word_len));
 
     std::optional<std::size_t> max_vocab_opt = std::nullopt;
     if (cfg.max_vocab > 0) max_vocab_opt = cfg.max_vocab;
@@ -349,7 +344,7 @@ int main() {
       const auto final_tokens = BuildFinalTokens(punct_sorted, words_sorted, pieces_sorted, max_vocab_opt);
 
       if (!WriteTokenList(cfg.token_list_output_path, final_tokens)) {
-        throw WriteError("Failed to write token list: " + cfg.token_list_output_path.string());
+        throw WriteError("failed to write token list :( " + cfg.token_list_output_path.string());
       }
 
       stats->punct = punct_sorted.size();
@@ -368,7 +363,7 @@ int main() {
     std::cerr << e.what() << '\n';
     return 666;
   } catch (const std::exception& e) {
-    std::cerr << "Unexpected error: " << e.what() << '\n';
+    std::cerr << "unexpected error :( " << e.what() << '\n';
     return 666;
   }
 
