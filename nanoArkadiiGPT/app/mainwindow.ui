@@ -6,101 +6,464 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
-    <height>600</height>
+    <width>1180</width>
+    <height>780</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>ArkadiiGPT Studio</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">QMainWindow {
+    background-color: #EFEAE2;
+    color: #1D2128;
+    font-family: "Avenir Next";
+    }
+
+    QWidget#centralwidget {
+    background-color: #EFEAE2;
+    }
+
+    QFrame#sidebarFrame {
+    background-color: #171C25;
+    border-radius: 28px;
+    }
+
+    QFrame#workspaceFrame {
+    background-color: #F7F3EC;
+    border-radius: 28px;
+    border: 1px solid #DDD5C9;
+    }
+
+    QFrame#heroFrame {
+    background-color: #FFFFFF;
+    border: 1px solid #E2D8CC;
+    border-radius: 22px;
+    }
+
+    QFrame#controlFrame {
+    background-color: #F1EBE3;
+    border: 1px solid #DDD5C9;
+    border-radius: 20px;
+    }
+
+    QLabel#brandLabel {
+    color: #F7F3EC;
+    font-size: 30px;
+    font-weight: 700;
+    }
+
+    QLabel#brandSubLabel {
+    color: #98A1AE;
+    font-size: 13px;
+    }
+
+    QLabel#sectionLabel {
+    color: #D8CFC2;
+    font-size: 11px;
+    font-weight: 700;
+    }
+
+    QLabel#heroTitle {
+    color: #1D2128;
+    font-size: 32px;
+    font-weight: 700;
+    }
+
+    QLabel#heroSubTitle {
+    color: #6C6F75;
+    font-size: 14px;
+    }
+
+    QLabel#chipLabel {
+    background-color: #214E5A;
+    color: #F7F3EC;
+    border-radius: 12px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    }
+
+    QLabel#captionLabel {
+    color: #78736C;
+    font-size: 12px;
+    }
+
+    QLabel#footerLabel {
+    color: #8B867F;
+    font-size: 12px;
+    }
+
+    QLabel#controlLabel {
+    color: #1D2128;
+    font-size: 14px;
+    font-weight: 600;
+    }
+
+    QListWidget#listWidget {
+    background-color: #1E2430;
+    color: #F7F3EC;
+    border: 1px solid #2D3444;
+    border-radius: 18px;
+    outline: 0;
+    padding: 10px;
+    font-size: 14px;
+    }
+
+    QListWidget#listWidget::item {
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin: 4px 0px;
+    }
+
+    QListWidget#listWidget::item:selected {
+    background-color: #C85D45;
+    color: #FFFFFF;
+    }
+
+    QListWidget#listWidget::item:hover {
+    background-color: #2A3140;
+    }
+
+    QSpinBox#spinBox {
+    background-color: #FFFFFF;
+    color: #1D2128;
+    border: 1px solid #D4CABD;
+    border-radius: 14px;
+    padding: 9px 12px;
+    min-width: 90px;
+    font-size: 14px;
+    }
+
+    QSpinBox#spinBox::up-button,
+    QSpinBox#spinBox::down-button {
+    width: 18px;
+    border: none;
+    background: transparent;
+    }
+
+    QPushButton#pushButton {
+    background-color: #C85D45;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 16px;
+    padding: 12px 22px;
+    font-size: 14px;
+    font-weight: 700;
+    }
+
+    QPushButton#pushButton:hover {
+    background-color: #B4513A;
+    }
+
+    QPushButton#pushButton:pressed {
+    background-color: #9D4632;
+    }
+
+    QPlainTextEdit#plainTextEdit {
+    background-color: #FFFFFF;
+    color: #1D2128;
+    border: 1px solid #E2D8CC;
+    border-radius: 22px;
+    padding: 18px;
+    font-size: 15px;
+    selection-background-color: #214E5A;
+    selection-color: #FFFFFF;
+    }</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QLabel" name="label">
-    <property name="geometry">
-     <rect>
-      <x>370</x>
-      <y>30</y>
-      <width>91</width>
-      <height>16</height>
-     </rect>
+   <layout class="QHBoxLayout" name="horizontalLayout">
+    <property name="spacing">
+     <number>22</number>
     </property>
-    <property name="text">
-     <string>LLM showcase</string>
+    <property name="leftMargin">
+     <number>22</number>
     </property>
-   </widget>
-   <widget class="QPlainTextEdit" name="plainTextEdit">
-    <property name="geometry">
-     <rect>
-      <x>290</x>
-      <y>120</y>
-      <width>271</width>
-      <height>251</height>
-     </rect>
+    <property name="topMargin">
+     <number>22</number>
     </property>
-   </widget>
-   <widget class="QSpinBox" name="spinBox">
-    <property name="geometry">
-     <rect>
-      <x>410</x>
-      <y>80</y>
-      <width>48</width>
-      <height>24</height>
-     </rect>
+    <property name="rightMargin">
+     <number>22</number>
     </property>
-   </widget>
-   <widget class="QPushButton" name="pushButton">
-    <property name="geometry">
-     <rect>
-      <x>470</x>
-      <y>81</y>
-      <width>91</width>
-      <height>31</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>generate</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="label_2">
-    <property name="geometry">
-     <rect>
-      <x>300</x>
-      <y>81</y>
-      <width>101</width>
-      <height>20</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Generate words:</string>
-    </property>
-   </widget>
-   <widget class="QListWidget" name="listWidget">
-    <property name="geometry">
-     <rect>
-      <x>20</x>
-      <y>30</y>
-      <width>151</width>
-      <height>181</height>
-     </rect>
+    <property name="bottomMargin">
+     <number>22</number>
     </property>
     <item>
-     <property name="text">
-      <string>SimeonTokenizerBigram</string>
-     </property>
+     <widget class="QFrame" name="sidebarFrame">
+      <property name="minimumSize">
+       <size>
+        <width>290</width>
+        <height>0</height>
+       </size>
+      </property>
+      <property name="maximumSize">
+       <size>
+        <width>320</width>
+        <height>16777215</height>
+       </size>
+      </property>
+      <layout class="QVBoxLayout" name="verticalLayout_2">
+       <property name="spacing">
+        <number>18</number>
+       </property>
+       <property name="leftMargin">
+        <number>24</number>
+       </property>
+       <property name="topMargin">
+        <number>26</number>
+       </property>
+       <property name="rightMargin">
+        <number>24</number>
+       </property>
+       <property name="bottomMargin">
+        <number>24</number>
+       </property>
+       <item>
+        <widget class="QLabel" name="brandLabel">
+         <property name="text">
+          <string>ArkadiiGPT</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="brandSubLabel">
+         <property name="text">
+          <string>Minimal text lab for local language models.</string>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacer_2">
+         <property name="orientation">
+          <enum>Qt::Orientation::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>6</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item>
+        <widget class="QLabel" name="sectionLabel">
+         <property name="text">
+          <string>AVAILABLE MODELS</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QListWidget" name="listWidget">
+         <item>
+          <property name="text">
+           <string>SimeonTokenizerBigram</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>ArkadiiGPT</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="captionLabel">
+         <property name="text">
+          <string>Use the list to switch the active generator. Backend bindings stay unchanged.</string>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Orientation::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>280</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
     </item>
     <item>
-     <property name="text">
-      <string>ArkadiiGPT</string>
-     </property>
+     <widget class="QFrame" name="workspaceFrame">
+      <layout class="QVBoxLayout" name="verticalLayout">
+       <property name="spacing">
+        <number>18</number>
+       </property>
+       <property name="leftMargin">
+        <number>24</number>
+       </property>
+       <property name="topMargin">
+        <number>24</number>
+       </property>
+       <property name="rightMargin">
+        <number>24</number>
+       </property>
+       <property name="bottomMargin">
+        <number>24</number>
+       </property>
+       <item>
+        <widget class="QFrame" name="heroFrame">
+         <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <property name="spacing">
+           <number>16</number>
+          </property>
+          <property name="leftMargin">
+           <number>22</number>
+          </property>
+          <property name="topMargin">
+           <number>20</number>
+          </property>
+          <property name="rightMargin">
+           <number>22</number>
+          </property>
+          <property name="bottomMargin">
+           <number>20</number>
+          </property>
+          <item>
+           <layout class="QVBoxLayout" name="verticalLayout_3">
+            <property name="spacing">
+             <number>6</number>
+            </property>
+            <item>
+             <widget class="QLabel" name="heroTitle">
+              <property name="text">
+               <string>Prompt Workspace</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="heroSubTitle">
+              <property name="text">
+               <string>Write context, trigger generation, and iterate without clutter.</string>
+              </property>
+              <property name="wordWrap">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer">
+            <property name="orientation">
+             <enum>Qt::Orientation::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QLabel" name="chipLabel">
+            <property name="text">
+             <string>STUDIO MODE</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QFrame" name="controlFrame">
+         <layout class="QHBoxLayout" name="horizontalLayout_3">
+          <property name="spacing">
+           <number>14</number>
+          </property>
+          <property name="leftMargin">
+           <number>18</number>
+          </property>
+          <property name="topMargin">
+           <number>16</number>
+          </property>
+          <property name="rightMargin">
+           <number>18</number>
+          </property>
+          <property name="bottomMargin">
+           <number>16</number>
+          </property>
+          <item>
+           <widget class="QLabel" name="label_2">
+            <property name="text">
+             <string>Generate words</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="spinBox"/>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer_2">
+            <property name="orientation">
+             <enum>Qt::Orientation::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton">
+            <property name="minimumSize">
+             <size>
+              <width>150</width>
+              <height>46</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>Generate</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPlainTextEdit" name="plainTextEdit">
+         <property name="placeholderText">
+          <string>Type your context here and press Generate…</string>
+         </property>
+         <property name="lineWrapMode">
+          <enum>QPlainTextEdit::WidgetWidth</enum>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="footerLabel">
+         <property name="text">
+          <string>Clean UI layer only. No backend changes required.</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
     </item>
-   </widget>
+   </layout>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>800</width>
-     <height>38</height>
+     <width>1180</width>
+     <height>24</height>
     </rect>
    </property>
   </widget>
