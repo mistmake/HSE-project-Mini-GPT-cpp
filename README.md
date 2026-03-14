@@ -250,3 +250,18 @@ cmake -S . -B build \
 - Amount of heads in multi-attention: **6**
 - Training time: **~5 hours**
 
+## Tokenizer description:
+
+* dataset = "tinystories_full.txt"
+* token_list = "list_of_tokens.txt"
+* lines read = 20549774
+* punct = 28
+* words = 35951
+* pieces = 144620
+* final_tokens = 156054
+* time_consumed_in_ms = 307319
+
+## Dataset description
+We used dataset tinystories. It contains synthetically generated (by GPT-3.5 and GPT-4) short stories that only use a small vocabulary.
+
+https://huggingface.co/datasets/roneneldan/TinyStories
